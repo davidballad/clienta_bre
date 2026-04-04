@@ -1,4 +1,4 @@
-"""Data models for CRM entities with DynamoDB serialization (stdlib dataclasses)."""
+"""Data models for Clienta BR (Real Estate) with DynamoDB serialization."""
 
 from __future__ import annotations
 
@@ -40,26 +40,6 @@ class _BaseModel:
         valid_fields = {f.name for f in fields(cls)}
         filtered = {k: v for k, v in item.items() if k in valid_fields}
         return cls(**filtered)
-
-
-@dataclass
-class Product(_BaseModel):
-    name: str
-    id: str | None = None
-    category: str | None = None
-    tags: list[str] | None = None
-    quantity: int = 0
-    unit_cost: Decimal | None = None
-    reorder_threshold: int = 10
-    supplier_id: str | None = None
-    sku: str | None = None
-    unit: str = "each"
-    image_url: str | None = None
-    notes: str | None = None
-    promo_price: Decimal | None = None
-    promo_end_at: str | None = None
-    created_at: str | None = None
-    updated_at: str | None = None
 
 
 @dataclass
@@ -110,54 +90,6 @@ class Property(_BaseModel):
 
 
 @dataclass
-class TransactionItem(_BaseModel):
-    product_id: str
-    product_name: str
-    quantity: int
-    unit_price: Decimal
-
-
-@dataclass
-class Transaction(_BaseModel):
-    items: list
-    total: Decimal
-    payment_method: str
-    id: str | None = None
-    contact_id: str | None = None
-    delivery_method: str | None = None
-    delivery_location: str | None = None
-    delivery_status: str | None = None
-    delivery_window_requested: str | None = None
-    delivery_window_approved: str | None = None
-    delivery_decision_note: str | None = None
-    subtotal: Decimal | None = None
-    tax_rate: Decimal | None = None
-    tax_amount: Decimal | None = None
-    status: str = "pending"
-    idempotency_key: str | None = None
-    square_payment_id: str | None = None
-    customer_phone: str | None = None
-    order_notes: str | None = None
-    payment_reference: str | None = None
-    payment_verification_status: str | None = None
-    payment_proof_s3_key: str | None = None
-    payment_proof_content_type: str | None = None
-    payment_proof_received_at: str | None = None
-    created_at: str | None = None
-
-
-@dataclass
-class Supplier(_BaseModel):
-    name: str
-    id: str | None = None
-    contact_email: str | None = None
-    contact_phone: str | None = None
-    address: str | None = None
-    lead_time_days: int | None = None
-    notes: str | None = None
-
-
-@dataclass
 class Tenant(_BaseModel):
     business_name: str
     business_type: str
@@ -190,27 +122,6 @@ class Tenant(_BaseModel):
 
 
 @dataclass
-class PurchaseOrderItem(_BaseModel):
-    product_id: str
-    product_name: str
-    quantity: int
-    unit_cost: Decimal
-
-
-@dataclass
-class PurchaseOrder(_BaseModel):
-    supplier_name: str
-    items: list
-    id: str | None = None
-    supplier_id: str | None = None
-    total_cost: Decimal | None = None
-    status: str = "draft"
-    notes: str | None = None
-    created_at: str | None = None
-    updated_at: str | None = None
-
-
-@dataclass
 class User(_BaseModel):
     email: str
     tenant_id: str
@@ -221,47 +132,6 @@ class User(_BaseModel):
     invited_by: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
-
-
-@dataclass
-class SquareConnection(_BaseModel):
-    tenant_id: str
-    square_merchant_id: str
-    square_access_token: str
-    square_refresh_token: str | None = None
-    square_location_id: str | None = None
-    connected_at: str | None = None
-    updated_at: str | None = None
-
-
-@dataclass
-class Payment(_BaseModel):
-    square_payment_id: str
-    amount: Decimal
-    id: str | None = None
-    transaction_id: str | None = None
-    square_order_id: str | None = None
-    currency: str = "USD"
-    status: str = "pending"
-    source_type: str = "card_present"
-    card_brand: str | None = None
-    card_last4: str | None = None
-    receipt_url: str | None = None
-    created_at: str | None = None
-    updated_at: str | None = None
-
-
-@dataclass
-class AIInsight(_BaseModel):
-    tenant_id: str
-    date: str
-    summary: str
-    generated_at: str
-    forecasts: list | None = None
-    reorder_suggestions: list | None = None
-    spending_trends: list | None = None
-    revenue_insights: list | None = None
-    lead_insights: list | None = None
 
 
 @dataclass
@@ -302,23 +172,6 @@ class Message(_BaseModel):
     category: str = "activo"
     processed_flags: list[str] | None = None
     created_ts: str | None = None
-
-
-@dataclass
-class Campaign(_BaseModel):
-    name: str
-    message_template: str
-    id: str | None = None
-    segment_filters: dict | None = None   # tier, lead_status, min_spent, max_spent, days_inactive, tag
-    status: str = "draft"                 # draft | sending | sent | failed
-    sent_count: int = 0
-    failed_count: int = 0
-    error_message: str | None = None
-
-    scheduled_at: str | None = None
-    n8n_webhook_url: str | None = None
-    created_at: str | None = None
-    updated_at: str | None = None
 
 
 @dataclass

@@ -1,85 +1,82 @@
-# Clienta AI
+# Clienta BR
 
-Multi-tenant SaaS CRM with AI-powered business insights, built for small businesses (restaurants, retail, bars).
+AI-powered Real Estate platform (CRM + WhatsApp Agent) designed for real estate brokers and developers to manage properties, leads, and automated RAG-based customer interactions.
+
+## Key Features
+
+- **AI WhatsApp Agent**: Handles property inquiries using RAG (Retrieval-Augmented Generation) with a specialized property knowledge base.
+- **Lead Scoring & Intent**: Automated lead qualification and probability scoring based on customer interactions.
+- **Property Management**: Specialized CRUD for real estate listings, including document processing (flyers, deeds) via AI.
+- **Multi-Tenant Architecture**: Robust tenant isolation for independent real estate offices.
+- **Analytics Dashboard**: Real-time insights into lead activity, property popularity, and conversion rates.
 
 ## Architecture
 
-- **Frontend**: React + Vite SPA deployed to S3 + CloudFront
-- **Auth**: AWS Cognito (User Pools + JWT)
-- **API**: API Gateway (HTTP API) + Lambda (Python 3.12)
-- **Database**: DynamoDB (single-table design, on-demand capacity)
-- **AI**: Google Gemini 2.5 Flash (AI Studio, free tier)
-- **Payments**: Square (in-store card readers + online Web Payments SDK)
-- **IaC**: Terraform
-- **Storage**: S3 (receipts, exports, static assets)
-- **Secrets**: AWS Secrets Manager (Square credentials)
-
-See [docs/architecture.md](docs/architecture.md) for detailed diagrams (system overview, request lifecycle, DynamoDB design, auth flow, AI pipeline) and [docs/api-reference.md](docs/api-reference.md) for the full API reference.
+- **Frontend**: React + Vite SPA (HeroUI, Framer Motion) deployed to S3 + CloudFront.
+- **Auth**: AWS Cognito (User Pools + JWT).
+- **API**: API Gateway (HTTP API) + Lambda (Python 3.12).
+- **Database**: DynamoDB (Single-table design).
+- **AI / RAG**: 
+    - **LLM**: Anthropic Claude 3.5 Sonnet (AWS Bedrock).
+    - **Embeddings**: Amazon Titan Text Embeddings v2 (AWS Bedrock).
+    - **Vector DB**: AWS S3 Vectors (Native vector search on property data).
+- **Orchestration**: n8n for WhatsApp workflow management.
+- **IaC**: Terraform.
 
 ## Project Structure
 
 ```
-clienta-ai/
-  terraform/               # Terraform (config in terraform/config/prod/)
+clienta-br/
+  terraform/               # Infrastructure as Code (AWS)
+    config/prod/           # Production environment configuration
   backend/
     functions/             # Lambda functions (Python)
-      inventory/           # Inventory CRUD
-      transactions/        # Sale recording & summaries
-      purchases/           # Purchase order management
-      ai_insights/         # AI-powered business insights
+      properties/          # Property CRUD, RAG, and AI extraction
+      contacts/            # Real estate lead management & scoring
       onboarding/          # Tenant & user provisioning
-      users/               # Multi-user management (invite, roles)
-      payments/            # Square payment processing + webhooks
-      contacts/            # CRM Contacts & Leads management
-      contact/             # Public landing page contact form (SES)
-      agents/              # AI Social Media Campaign kit generation
-      shop/                # Public WhatsApp-token storefront logic
-      campaigns/           # Broadcast campaign management
+      users/               # Multi-user management
+      agents/              # AI-powered real estate assistant kit
       messages/            # WhatsApp chat history & thread management
-    shared/                # Shared utilities (db, auth, responses, models)
-    tests/                 # Backend tests
+    shared/                # Shared utilities (models, auth, db)
   frontend/
     src/
-      components/          # Reusable React components
-      pages/               # Route-level pages
-      hooks/               # Custom React hooks
-      api/                 # API client layer
-  docs/                    # Architecture docs
+      pages/               # BRDashboard, BRELanding, PropertyForm, etc.
+      components/          # BR-specific layouts and UI elements
+  docs/                    # Technical documentation
 ```
 
 ## Getting Started
 
-See [docs/deployment-guide.md](docs/deployment-guide.md) for prerequisites and full deployment walkthrough. Quick local dev:
+### Local Development
 
 ```bash
-# Backend
-cd backend && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && pytest
+# Backend (Local Testing)
+cd backend && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 
 # Frontend
 cd frontend && npm install && npm run dev
-
-# Infrastructure — see terraform/config/README.md for detailed commands
-cd terraform && terraform init -reconfigure -backend-config=config/prod/backend.tfvars
 ```
 
-## Data Model (DynamoDB Single-Table)
+### Infrastructure Deployment
+
+See `terraform/config/README.md` for detailed commands.
+
+```bash
+cd terraform
+terraform init -reconfigure -backend-config=config/prod/backend.tfvars
+terraform plan -var-file=config/prod/variables.tfvars
+```
+
+## Data Model (DynamoDB)
 
 | Entity            | PK                | SK                          | GSI1PK                          |
 | ----------------- | ----------------- | --------------------------- | ------------------------------- |
 | Tenant            | `TENANT#<id>`     | `TENANT#<id>`               | --                              |
-| Product           | `TENANT#<id>`     | `PRODUCT#<id>`              | `TENANT#<id>`                   |
-| Supplier          | `TENANT#<id>`     | `SUPPLIER#<id>`             | --                              |
-| Purchase Order    | `TENANT#<id>`     | `PO#<id>`                   | --                              |
-| Transaction       | `TENANT#<id>`     | `TXN#<timestamp>#<id>`      | --                              |
-| AI Insight        | `TENANT#<id>`     | `INSIGHT#<date>`            | --                              |
+| Property          | `TENANT#<id>`     | `PROPERTY#<id>`             | --                              |
 | User              | `TENANT#<id>`     | `USER#<id>`                 | --                              |
-| Payment           | `TENANT#<id>`     | `PAYMENT#<id>`              | `SQUARE_PAYMENT#<sq_id>`        |
-| Square Connection | `TENANT#<id>`     | `SQUARE#<id>`               | `SQUARE_MERCHANT#<merchant_id>` |
 | Contact / Lead    | `TENANT#<id>`     | `CONTACT#<id>`              | --                              |
 | WhatsApp Message  | `TENANT#<id>`     | `MESSAGE#<id>`              | --                              |
 | Conv. Summary     | `TENANT#<id>`     | `CONVO#<phone>`             | --                              |
-| AI Campaign       | `TENANT#<id>`     | `AI_CAMPAIGN#<id>`          | --                              |
-| Shop Cart         | `TENANT#<id>`     | `CART#<phone>`              | --                              |
 
 ## License
 

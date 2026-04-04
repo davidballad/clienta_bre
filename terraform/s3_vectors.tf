@@ -16,8 +16,4 @@ resource "aws_s3vectors_index" "br_properties" {
   data_type       = "float32"
   dimension       = 512 # Amazon Titan Embed V2 output dimension
   distance_metric = "cosine"
-
-  metadata_configuration {
-    non_filterable = []
-  }
 }

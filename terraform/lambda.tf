@@ -108,27 +108,6 @@ resource "aws_iam_role_policy" "lambda_cognito" {
 }
 
 # -----------------------------------------------------------------------------
-# SES (contact form)
-# -----------------------------------------------------------------------------
-
-data "aws_iam_policy_document" "lambda_ses" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "ses:SendEmail",
-      "ses:SendRawEmail"
-    ]
-    resources = ["*"]
-  }
-}
-
-resource "aws_iam_role_policy" "lambda_ses" {
-  name   = "ses-send-email"
-  role   = aws_iam_role.lambda.id
-  policy = data.aws_iam_policy_document.lambda_ses.json
-}
-
-# -----------------------------------------------------------------------------
 # Bedrock (embeddings + Claude chat — BR properties)
 # -----------------------------------------------------------------------------
 
@@ -252,58 +231,9 @@ data "archive_file" "properties_package" {
   }
 }
 
-data "archive_file" "payments_package" {
-  type        = "zip"
-  output_path = "${local.packages_dir}/payments.zip"
-
-  source {
-    content  = file("${path.module}/../backend/functions/payments/handler.py")
-    filename = "handler.py"
-  }
-
-  dynamic "source" {
-    for_each = fileset("${path.module}/../backend/shared", "*.py")
-    content {
-      content  = file("${path.module}/../backend/shared/${source.value}")
-      filename = "shared/${source.value}"
-    }
-  }
-}
-
 # =============================================================================
 # Lambda Functions
 # =============================================================================
-
-# Payments Lambda needs Square-specific env vars, defined separately
-resource "aws_lambda_function" "payments" {
-  function_name = "${local.name_prefix}-payments"
-  role          = aws_iam_role.lambda.arn
-  handler       = "handler.lambda_handler"
-  runtime       = "python3.12"
-
-  filename         = data.archive_file.payments_package.output_path
-  source_code_hash = data.archive_file.payments_package.output_base64sha256
-  layers           = [aws_lambda_layer_version.deps.arn]
-
-  memory_size = 256
-  timeout     = 30
-
-  environment {
-    variables = {
-      TABLE_NAME            = aws_dynamodb_table.main.name
-      COGNITO_USER_POOL_ID  = aws_cognito_user_pool.main.id
-      DATA_BUCKET           = aws_s3_bucket.data.id
-      SQUARE_APPLICATION_ID = var.square_application_id
-      SQUARE_ENVIRONMENT    = var.square_environment
-      # SQUARE_SECRET_ARN   = aws_secretsmanager_secret.square.arn  # enable if you uncomment secrets.tf
-      SQUARE_WEBHOOK_URL = "${aws_apigatewayv2_api.main.api_endpoint}/payments/webhook"
-    }
-  }
-
-  tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-payments"
-  })
-}
 
 resource "aws_lambda_function" "services" {
   for_each = {
@@ -333,7 +263,6 @@ resource "aws_lambda_function" "services" {
       SERVICE_API_KEY          = var.service_api_key
       CONTACT_FROM_EMAIL       = var.contact_from_email
       CONTACT_RECIPIENT_EMAIL  = var.contact_recipient_email
-      N8N_CAMPAIGN_WEBHOOK_URL = var.n8n_campaign_webhook_url
     }
   }
 
@@ -375,4 +304,3 @@ resource "aws_lambda_function" "properties" {
     Name = "${local.name_prefix}-properties"
   })
 }
-
