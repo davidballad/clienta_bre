@@ -13,7 +13,7 @@ resource "aws_cognito_user_pool" "main" {
     require_lowercase                = true
     require_uppercase                = true
     require_numbers                  = true
-    require_symbols                 = false
+    require_symbols                  = false
     temporary_password_validity_days = 7
   }
 
@@ -59,16 +59,16 @@ resource "aws_cognito_user_pool_client" "spa" {
   user_pool_id = aws_cognito_user_pool.main.id
 
   generate_secret               = false
-  explicit_auth_flows            = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
-  prevent_user_existence_errors  = "ENABLED"
-  enable_token_revocation        = true
+  explicit_auth_flows           = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
   refresh_token_validity        = 30
-  access_token_validity          = 60
-  id_token_validity              = 60
+  access_token_validity         = 60
+  id_token_validity             = 60
 
   # Include custom attributes in ID token so API Gateway / Lambdas get tenant_id and role
   read_attributes  = ["email", "custom:tenant_id", "custom:role"]
-  write_attributes  = ["email"]
+  write_attributes = ["email"]
 
   callback_urls = var.cognito_callback_urls
   logout_urls   = var.cognito_logout_urls

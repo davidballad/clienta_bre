@@ -62,6 +62,10 @@ locals {
       memory_size = 512
       timeout     = 60
     }
+    properties = {
+      memory_size = 512
+      timeout     = 120
+    }
 
   }
 

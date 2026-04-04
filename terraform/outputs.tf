@@ -4,7 +4,7 @@
 
 output "api_endpoint" {
   description = "API Gateway HTTP API endpoint URL"
-  value       = "${aws_apigatewayv2_api.main.api_endpoint}"
+  value       = aws_apigatewayv2_api.main.api_endpoint
 }
 
 output "cognito_user_pool_id" {
@@ -45,4 +45,20 @@ output "cloudfront_distribution_id" {
 output "dynamodb_table_name" {
   description = "DynamoDB table name"
   value       = aws_dynamodb_table.main.name
+}
+
+# BR outputs
+output "s3v_bucket_name" {
+  description = "S3 Vectors bucket name for BR property embeddings"
+  value       = aws_s3vectors_vector_bucket.br_properties.vector_bucket_name
+}
+
+output "s3v_index_name" {
+  description = "S3 Vectors index name for property embeddings"
+  value       = aws_s3vectors_index.br_properties.index_name
+}
+
+output "properties_lambda_name" {
+  description = "Properties Lambda function name"
+  value       = aws_lambda_function.properties.function_name
 }

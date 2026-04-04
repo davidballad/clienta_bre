@@ -5,7 +5,7 @@
 resource "aws_apigatewayv2_api" "main" {
   name          = "${local.name_prefix}-api"
   protocol_type = "HTTP"
-  description   = "Clienta AI API Gateway"
+  description   = "Clienta BR API Gateway"
 
   cors_configuration {
     allow_origins = ["*"]
@@ -37,106 +37,114 @@ resource "aws_apigatewayv2_authorizer" "jwt" {
 # -----------------------------------------------------------------------------
 
 resource "aws_apigatewayv2_integration" "inventory" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.services["inventory"].invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.services["inventory"].invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "transactions" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.services["transactions"].invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.services["transactions"].invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "purchases" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.services["purchases"].invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.services["purchases"].invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "ai_insights" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.services["ai_insights"].invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.services["ai_insights"].invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "onboarding" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.services["onboarding"].invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.services["onboarding"].invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "users" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.services["users"].invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.services["users"].invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "payments" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.payments.invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.payments.invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "contacts" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.services["contacts"].invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.services["contacts"].invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "messages" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.services["messages"].invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.services["messages"].invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "contact" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.services["contact"].invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.services["contact"].invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "shop" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.services["shop"].invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.services["shop"].invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "campaigns" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.services["campaigns"].invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.services["campaigns"].invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "agents" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.services["agents"].invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.services["agents"].invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_integration" "properties" {
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.properties.invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
@@ -714,6 +722,92 @@ resource "aws_apigatewayv2_route" "shop_store_page" {
   target    = "integrations/${aws_apigatewayv2_integration.shop.id}"
 }
 
+# Properties routes — BR real estate (no API Gateway JWT — Lambda validates internally)
+resource "aws_apigatewayv2_route" "properties_list" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /properties"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_create" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /properties"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_get" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /properties/{id}"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_update" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "PUT /properties/{id}"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_delete" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "DELETE /properties/{id}"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_stats" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /properties/stats"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_import" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /properties/import"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_template" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /properties/export/template"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_upload_url" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /properties/{id}/upload-url"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+# AI-powered routes
+resource "aws_apigatewayv2_route" "properties_extract_flyer" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /properties/extract-flyer"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_process_doc" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /properties/process-doc"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_query" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /properties/query"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_score_lead" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /properties/score-lead"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_sync_vectors" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /properties/sync-vectors"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
 # -----------------------------------------------------------------------------
 # API Gateway Stage (default)
 # -----------------------------------------------------------------------------
@@ -748,6 +842,14 @@ resource "aws_lambda_permission" "payments_api_gateway" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.payments.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "properties_api_gateway" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.properties.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
 }

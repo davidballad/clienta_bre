@@ -14,17 +14,9 @@ Locking uses a `.tflock` file in the same S3 bucket (Terraform 1.8+). The `dynam
 
 ## Init (from `terraform/`)
 
-**Bash:**
 ```bash
 cd terraform
 terraform init -reconfigure -backend-config=config/prod/backend.tfvars
-```
-
-**PowerShell** (quote so `=` isn’t split):
-```powershell
-cd terraform
-terraform init -reconfigure "-backend-config=config/prod/backend.tfvars"
-# or: terraform init -reconfigure -backend-config config/prod/backend.tfvars
 ```
 
 ---
@@ -49,9 +41,9 @@ terraform apply -var-file=config/prod/variables.tfvars -var-file=config/prod/sec
 **Using the deploy script** (from repo root): `./scripts/deploy.sh` loads both var-files automatically. Ensure `config/prod/variables.tfvars` and `config/prod/secrets.tfvars` exist.
 
 | In secrets.tfvars | Purpose |
-|-------------------|---------|
+|-------------------|---------| 
 | `service_api_key` | n8n → API auth (X-Service-Key) |
-| `gemini_api_key` | Google AI Studio API key for AI insights ([aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)) |
+| `gemini_api_key` | Google AI Studio API key for Gemini vision ([aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)) |
 
 ---
 
@@ -79,21 +71,23 @@ If you use **AWS SSO** and have profiles in `~/.aws/config` (e.g. `[profile clie
 aws sso login --profile prod     # or --profile clienta
 ```
 
-**PowerShell:**
-```powershell
-$env:AWS_PROFILE = "prod"   # or "clienta"
-cd terraform
-terraform init -reconfigure -backend-config=config/prod/backend.tfvars
-terraform plan --var-file config/prod/variables.tfvars --out tfplan
-
-```
-
 **Bash:**
 ```bash
-export AWS_PROFILE=prod   # or clienta
+export AWS_PROFILE=prod
 cd terraform
 terraform init -reconfigure -backend-config=config/prod/backend.tfvars
-terraform plan -var-file=config/prod/variables.tfvars
+terraform plan -var-file=config/prod/variables.tfvars -var-file=config/prod/secrets.tfvars
 ```
 
-Or one-off: `AWS_PROFILE=prod terraform plan -var-file=config/prod/variables.tfvars`
+---
+
+## BR-Specific Resources
+
+This stack provisions the real estate (Bienes Raíces) module on top of the CRM:
+
+| Resource | Purpose |
+|----------|---------|
+| S3 Vectors bucket + index | Property embeddings via Titan Embed V2 (512-dim cosine) |
+| Properties Lambda | CRUD + AI endpoints (Bedrock, Gemini, RAG) |
+| Bedrock IAM | InvokeModel for Titan Embed V2 + Claude 3.5 Sonnet |
+| S3 Vectors IAM | Vector CRUD for RAG |

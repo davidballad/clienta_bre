@@ -5,7 +5,7 @@
 variable "project_name" {
   description = "Project name used for resource naming"
   type        = string
-  default     = "clienta-ai"
+  default     = "clienta-br"
 }
 
 variable "environment" {
@@ -50,7 +50,7 @@ variable "cognito_logout_urls" {
 variable "dynamodb_table_name" {
   description = "Name of the DynamoDB table"
   type        = string
-  default     = "clienta-ai-dev-table"
+  default     = "clienta-br-dev-table"
 }
 
 # -----------------------------------------------------------------------------
