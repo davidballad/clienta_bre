@@ -79,3 +79,53 @@ export async function downloadPropertyTemplate() {
     URL.revokeObjectURL(a.href);
   }
 }
+
+// ── AI-Powered Endpoints ────────────────────────────────────────────
+
+/** Extract property data from a flyer image (Canva, screenshot, ad creative). */
+export function extractFromFlyer({ s3Key, imageBase64, mimeType }) {
+  const body = {};
+  if (s3Key) body.s3_key = s3Key;
+  if (imageBase64) {
+    body.image_base64 = imageBase64;
+    body.mime_type = mimeType || 'image/jpeg';
+  }
+  return api.post('/properties/extract-flyer', body);
+}
+
+/** Process a legal document for RAG (escritura, plano, certificado). */
+export function processDocument({ propertyId, s3Key }) {
+  return api.post('/properties/process-doc', {
+    property_id: propertyId,
+    s3_key: s3Key,
+  });
+}
+
+/** Semantic RAG query for property information. */
+export function queryProperties({ query, transactionType, city, propertyId, conversationHistory }) {
+  return api.post('/properties/query', {
+    query,
+    transaction_type: transactionType,
+    city,
+    property_id: propertyId,
+    conversation_history: conversationHistory,
+  });
+}
+
+/** Detect intent + calculate lead score from a WhatsApp message. */
+export function scoreLead({ message, messageCount, propertiesViewed, daysActive, propertyPrice, previousScore }) {
+  return api.post('/properties/score-lead', {
+    message,
+    message_count: messageCount,
+    properties_viewed: propertiesViewed,
+    days_active: daysActive,
+    property_price: propertyPrice,
+    previous_score: previousScore,
+  });
+}
+
+/** Re-sync property vectors (after bulk import or manual changes). */
+export function syncPropertyVectors(propertyIds) {
+  return api.post('/properties/sync-vectors', propertyIds ? { property_ids: propertyIds } : {});
+}
+

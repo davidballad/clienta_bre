@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Building2,
@@ -13,10 +13,15 @@ import {
   CheckCircle2,
   Clock,
   AlertTriangle,
-  Filter,
+  MapPin,
+  Loader2,
+  RefreshCw,
+  Sparkles,
 } from 'lucide-react';
+import { useProperties, usePropertyStats, useSyncVectors } from '../hooks/useProperties';
 
-/** Mock stats for when API isn't connected yet */
+/* ── Fallback mocks (when API isn't available yet) ─────────────────── */
+
 const MOCK_STATS = {
   total: 24,
   by_status: { disponible: 18, reservado: 3, vendido: 2, rentado: 1 },
@@ -30,14 +35,7 @@ const MOCK_LEADS = [
   { name: 'Andrés Torres', phone: '+593 995 333 444', score: 45, intent: 'buy', property: null, time: 'Hace 3 horas' },
 ];
 
-const MOCK_PROPERTIES = [
-  { id: '1', name: 'Suite 2BR La Carolina', city: 'Quito', price: 120000, type: 'sale', status: 'disponible', bedrooms: 2, area: 85, image: null },
-  { id: '2', name: 'Casa Familiar Cumbayá', city: 'Quito', price: 250000, type: 'sale', status: 'disponible', bedrooms: 4, area: 220, image: null },
-  { id: '3', name: 'Oficina Centro Norte', city: 'Quito', price: 800, type: 'rent', status: 'disponible', bedrooms: 0, area: 65, image: null },
-  { id: '4', name: 'Depto Samborondón', city: 'Guayaquil', price: 1200, type: 'rent', status: 'reservado', bedrooms: 3, area: 140, image: null },
-  { id: '5', name: 'Terreno Valle Tumbaco', city: 'Quito', price: 95000, type: 'sale', status: 'disponible', bedrooms: 0, area: 500, image: null },
-  { id: '6', name: 'Penthouse González Suárez', city: 'Quito', price: 380000, type: 'sale', status: 'vendido', bedrooms: 3, area: 180, image: null },
-];
+/* ── Sub-components ────────────────────────────────────────────────── */
 
 function StatCard({ icon: Icon, label, value, color, subtext }) {
   return (
@@ -60,7 +58,6 @@ function ScoreBadge({ score }) {
   let color = 'bg-gray-100 text-gray-600';
   if (score >= 75) color = 'bg-emerald-100 text-emerald-700';
   else if (score >= 50) color = 'bg-amber-100 text-amber-700';
-  else color = 'bg-gray-100 text-gray-600';
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${color}`}>
       {score}%
@@ -89,13 +86,16 @@ function StatusBadge({ status }) {
 }
 
 function PropertyCard({ property }) {
-  const isSale = property.type === 'sale';
+  const isSale = property.transaction_type === 'sale';
+  const price = Number(property.price) || 0;
   return (
-    <div className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-lg hover:border-emerald-200">
-      {/* Image placeholder */}
+    <Link
+      to={`/br/properties/${property.id}`}
+      className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-lg hover:border-emerald-200"
+    >
       <div className="relative h-40 bg-gradient-to-br from-gray-100 to-gray-200">
-        {property.image ? (
-          <img src={property.image} alt={property.name} className="h-full w-full object-cover" />
+        {property.image_url ? (
+          <img src={property.image_url} alt={property.name} className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <Building2 className="h-12 w-12 text-gray-300" />
@@ -112,26 +112,35 @@ function PropertyCard({ property }) {
       </div>
       <div className="p-4">
         <h3 className="font-semibold text-gray-900 truncate">{property.name}</h3>
-        <p className="mt-0.5 text-sm text-gray-500">{property.city}</p>
+        <div className="mt-0.5 flex items-center gap-1 text-sm text-gray-500">
+          <MapPin className="h-3 w-3" />
+          {property.city || 'Sin ciudad'}
+        </div>
         <div className="mt-3 flex items-center justify-between">
           <p className="text-lg font-bold text-emerald-700">
-            ${property.price?.toLocaleString()}
+            ${price.toLocaleString()}
             {!isSale && <span className="text-xs font-normal text-gray-400">/mes</span>}
           </p>
           <div className="flex items-center gap-2 text-xs text-gray-400">
             {property.bedrooms > 0 && <span>{property.bedrooms} hab</span>}
-            {property.area > 0 && <span>{property.area}m²</span>}
+            {property.area_m2 > 0 && <span>{Number(property.area_m2)}m²</span>}
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
+/* ── Main Dashboard ────────────────────────────────────────────────── */
+
 export default function BRDashboard() {
-  const stats = MOCK_STATS;
-  const leads = MOCK_LEADS;
-  const properties = MOCK_PROPERTIES;
+  const { data: statsData, isLoading: statsLoading } = usePropertyStats();
+  const { data: propsData, isLoading: propsLoading } = useProperties({ limit: 6 });
+  const syncMutation = useSyncVectors();
+
+  const stats = statsData || MOCK_STATS;
+  const leads = MOCK_LEADS; // TODO: connect leads API when ready
+  const properties = propsData?.properties || [];
 
   return (
     <div className="space-y-6">
@@ -157,19 +166,19 @@ export default function BRDashboard() {
         <StatCard
           icon={Building2}
           label="Total Propiedades"
-          value={stats.total}
+          value={statsLoading ? '...' : stats.total}
           color="bg-emerald-100 text-emerald-700"
         />
         <StatCard
           icon={CheckCircle2}
           label="Disponibles"
-          value={stats.by_status.disponible}
+          value={statsLoading ? '...' : stats.by_status.disponible}
           color="bg-green-100 text-green-700"
         />
         <StatCard
           icon={Home}
           label="Venta"
-          value={stats.by_type.sale}
+          value={statsLoading ? '...' : stats.by_type.sale}
           color="bg-blue-100 text-blue-700"
           subtext={`${stats.by_type.rent} en renta`}
         />
@@ -231,11 +240,25 @@ export default function BRDashboard() {
               Ver galería <ArrowUpRight className="h-3 w-3" />
             </Link>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {properties.slice(0, 6).map((prop) => (
-              <PropertyCard key={prop.id} property={prop} />
-            ))}
-          </div>
+          {propsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+            </div>
+          ) : properties.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {properties.slice(0, 6).map((prop) => (
+                <PropertyCard key={prop.id} property={prop} />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center rounded-xl border border-dashed border-gray-300">
+              <Building2 className="h-10 w-10 text-gray-300 mb-3" />
+              <p className="text-sm text-gray-500 mb-2">Aún no hay propiedades</p>
+              <Link to="/br/properties/new" className="text-sm font-medium text-emerald-600 hover:text-emerald-500">
+                Agregar primera propiedad →
+              </Link>
+            </div>
+          )}
         </div>
       </div>
 

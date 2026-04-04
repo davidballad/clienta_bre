@@ -1,4 +1,4 @@
-"""Properties CRUD Lambda handler for Clienta BR (Bienes Raíces)."""
+"""Properties CRUD + AI Lambda handler for Clienta BR (Bienes Raíces)."""
 
 from __future__ import annotations
 
@@ -41,6 +41,41 @@ VALID_PROPERTY_TYPES = {"casa", "departamento", "terreno", "oficina", "local", "
 
 DOCS_PREFIX = "br-docs"
 PRESIGNED_EXPIRY = 300
+
+
+# Lazy-loaded AI modules (avoid cold-start overhead for CRUD-only calls)
+_documents_mod = None
+_vision_mod = None
+_query_mod = None
+_scoring_mod = None
+
+
+def _get_documents():
+    global _documents_mod
+    if _documents_mod is None:
+        from . import documents as _documents_mod
+    return _documents_mod
+
+
+def _get_vision():
+    global _vision_mod
+    if _vision_mod is None:
+        from . import vision as _vision_mod
+    return _vision_mod
+
+
+def _get_query():
+    global _query_mod
+    if _query_mod is None:
+        from . import query as _query_mod
+    return _query_mod
+
+
+def _get_scoring():
+    global _scoring_mod
+    if _scoring_mod is None:
+        from . import scoring as _scoring_mod
+    return _scoring_mod
 
 
 def _normalize(s: str) -> str:
@@ -663,6 +698,208 @@ def get_property_stats(tenant_id: str) -> dict[str, Any]:
         return server_error(str(e))
 
 
+# ── AI Endpoints ────────────────────────────────────────────────────────
+
+
+def extract_from_flyer(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
+    """POST /properties/extract-flyer — Extract property data from an uploaded flyer image.
+
+    Body: { "s3_key": "..." } or { "image_base64": "...", "mime_type": "image/jpeg" }
+    Returns extracted property data ready for review/creation.
+    """
+    try:
+        body = parse_body(event)
+    except Exception as e:
+        return error(str(e), 400)
+
+    vision = _get_vision()
+
+    if body.get("s3_key"):
+        result = vision.process_flyer_upload(tenant_id, body["s3_key"])
+    elif body.get("image_base64"):
+        mime = body.get("mime_type", "image/jpeg")
+        extracted = vision.extract_from_base64(body["image_base64"], mime)
+        result = {"success": not bool(extracted.get("error")), "property_data": extracted}
+    else:
+        return error("Provide either s3_key or image_base64", 400)
+
+    if result.get("success"):
+        return success(body=result)
+    return error(result.get("error", "Extraction failed"), 422)
+
+
+def process_document(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
+    """POST /properties/process-doc — Process a legal document (PDF/image) for RAG.
+
+    Body: { "property_id": "...", "s3_key": "..." }
+    Extracts text with Gemini, stores vector in S3 Vectors.
+    """
+    try:
+        body = parse_body(event)
+    except Exception as e:
+        return error(str(e), 400)
+
+    property_id = body.get("property_id")
+    s3_key = body.get("s3_key")
+    if not property_id or not s3_key:
+        return error("property_id and s3_key are required", 400)
+
+    # Verify property exists
+    pk = build_pk(tenant_id)
+    sk = build_sk("PROPERTY", property_id)
+    try:
+        existing = get_item(pk=pk, sk=sk)
+    except DynamoDBError as e:
+        return server_error(str(e))
+    if not existing:
+        return not_found("Property not found")
+
+    vision = _get_vision()
+    result = vision.process_document_upload(tenant_id, property_id, s3_key)
+
+    if result.get("success"):
+        # Add s3_key to the property's document_keys list
+        doc_keys = existing.get("document_keys") or []
+        if s3_key not in doc_keys:
+            doc_keys.append(s3_key)
+            try:
+                update_item(pk=pk, sk=sk, updates={
+                    "document_keys": doc_keys,
+                    "updated_at": now_iso(),
+                })
+            except DynamoDBError:
+                pass  # Non-fatal: vector was stored even if dynamo update fails
+        return success(body=result)
+    return error(result.get("error", "Document processing failed"), 422)
+
+
+def rag_query(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
+    """POST /properties/query — RAG query for property information.
+
+    Body: {
+        "query": "departamento 2 cuartos en la carolina",
+        "transaction_type": "sale" (optional),
+        "city": "Quito" (optional),
+        "property_id": "..." (optional, for property-specific questions),
+        "conversation_history": [{"role": "user", "content": "..."}] (optional)
+    }
+    """
+    try:
+        body = parse_body(event)
+    except Exception as e:
+        return error(str(e), 400)
+
+    query_text = (body.get("query") or "").strip()
+    if not query_text:
+        return error("query is required", 400)
+
+    query_mod = _get_query()
+    result = query_mod.generate_rag_response(
+        tenant_id,
+        query_text,
+        conversation_history=body.get("conversation_history"),
+        transaction_type=body.get("transaction_type"),
+        city=body.get("city"),
+        property_id=body.get("property_id"),
+    )
+    return success(body=result)
+
+
+def detect_and_score(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
+    """POST /properties/score-lead — Detect intent + calculate lead score.
+
+    Body: {
+        "message": "Quiero comprar un depa de 2 cuartos...",
+        "message_count": 5,
+        "properties_viewed": 2,
+        "days_active": 3,
+        "property_price": 120000,
+        "previous_score": 45
+    }
+    Returns intent analysis + composite score.
+    """
+    try:
+        body = parse_body(event)
+    except Exception as e:
+        return error(str(e), 400)
+
+    message = (body.get("message") or "").strip()
+    if not message:
+        return error("message is required", 400)
+
+    # Step 1: Detect intent with Claude
+    query_mod = _get_query()
+    intent_data = query_mod.detect_intent(message)
+
+    # Step 2: Calculate composite score
+    scoring = _get_scoring()
+    score_result = scoring.calculate_lead_score(
+        intent_data,
+        message_count=body.get("message_count", 1),
+        properties_viewed=body.get("properties_viewed", 0),
+        days_active=body.get("days_active", 0),
+        property_price=body.get("property_price"),
+        previous_score=body.get("previous_score"),
+    )
+
+    return success(body={
+        "intent": intent_data,
+        "score": score_result,
+        "should_notify_agent": scoring.should_notify_agent(score_result["score"]),
+    })
+
+
+def sync_property_vectors(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
+    """POST /properties/sync-vectors — Re-sync all property vectors.
+
+    Useful after bulk import or manual data changes.
+    Body: { "property_ids": ["id1", "id2"] } or {} for all.
+    """
+    try:
+        body = parse_body(event)
+    except Exception:
+        body = {}
+
+    property_ids = body.get("property_ids")
+    pk = build_pk(tenant_id)
+    docs = _get_documents()
+
+    try:
+        # Ensure vector infrastructure exists
+        docs.ensure_vector_index()
+
+        if property_ids:
+            # Specific properties
+            synced = []
+            for pid in property_ids[:50]:  # cap at 50
+                sk = build_sk("PROPERTY", pid)
+                item = get_item(pk=pk, sk=sk)
+                if item:
+                    prop = Property.from_dynamo(item).to_dict()
+                    docs.upsert_property_vector(tenant_id, prop)
+                    synced.append(pid)
+            return success(body={"synced_count": len(synced), "synced": synced})
+
+        # All properties
+        synced_count = 0
+        last_key = None
+        while True:
+            items, last_key = query_items(
+                pk=pk, sk_prefix=PROPERTY_SK_PREFIX, limit=100, last_key=last_key
+            )
+            for item in items:
+                prop = Property.from_dynamo(item).to_dict()
+                if prop.get("status") in ("disponible", "reservado"):
+                    docs.upsert_property_vector(tenant_id, prop)
+                    synced_count += 1
+            if not last_key:
+                break
+
+        return success(body={"synced_count": synced_count})
+    except Exception as e:
+        return server_error(f"Vector sync failed: {e}")
+
+
 # ── Lambda Handler ──────────────────────────────────────────────────────
 
 
@@ -691,6 +928,22 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         # Document upload URL
         if method == "POST" and path.endswith("/properties/upload-doc"):
             return get_document_upload_url(tenant_id, event)
+
+        # ── AI Endpoints ────────────────────────────────────────────────
+        if method == "POST" and path.endswith("/properties/extract-flyer"):
+            return extract_from_flyer(tenant_id, event)
+
+        if method == "POST" and path.endswith("/properties/process-doc"):
+            return process_document(tenant_id, event)
+
+        if method == "POST" and path.endswith("/properties/query"):
+            return rag_query(tenant_id, event)
+
+        if method == "POST" and path.endswith("/properties/score-lead"):
+            return detect_and_score(tenant_id, event)
+
+        if method == "POST" and path.endswith("/properties/sync-vectors"):
+            return sync_property_vectors(tenant_id, event)
 
         # CRUD
         if method == "GET" and not property_id:

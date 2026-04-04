@@ -1,3 +1,14 @@
+const PROPERTIES_BR = [
+  { id: 'prop-001', name: 'Suite 2BR La Carolina', transaction_type: 'sale', property_type: 'departamento', price: 120000, city: 'Quito', neighborhood: 'La Carolina', bedrooms: 2, bathrooms: 2, parking_spots: 1, area_m2: 85, status: 'disponible', amenities: ['piscina', 'gimnasio', 'guardianía'], project_name: 'Proyecto Sol', reference_code: 'SOL-101', description: 'Suite de lujo con vista panorámica al parque' },
+  { id: 'prop-002', name: 'Casa Familiar Cumbayá', transaction_type: 'sale', property_type: 'casa', price: 250000, city: 'Quito', neighborhood: 'Cumbayá', bedrooms: 4, bathrooms: 3, parking_spots: 2, area_m2: 220, status: 'disponible', amenities: ['jardín', 'bbq', 'bodega'], description: 'Casa amplia en urbanización cerrada' },
+  { id: 'prop-003', name: 'Oficina Centro Norte', transaction_type: 'rent', property_type: 'oficina', price: 800, city: 'Quito', neighborhood: 'Centro Norte', bedrooms: 0, bathrooms: 1, parking_spots: 1, area_m2: 65, status: 'disponible', description: 'Oficina amoblada con divisiones modulares' },
+  { id: 'prop-004', name: 'Depto 3BR Samborondón', transaction_type: 'rent', property_type: 'departamento', price: 1200, city: 'Guayaquil', neighborhood: 'Samborondón', bedrooms: 3, bathrooms: 2, parking_spots: 2, area_m2: 140, status: 'reservado', amenities: ['piscina', 'gimnasio', 'área social'], description: 'Departamento moderno en zona exclusiva' },
+  { id: 'prop-005', name: 'Terreno Valle Tumbaco', transaction_type: 'sale', property_type: 'terreno', price: 95000, city: 'Quito', neighborhood: 'Tumbaco', bedrooms: 0, bathrooms: 0, parking_spots: 0, area_m2: 500, status: 'disponible', description: 'Terreno plano con servicios básicos' },
+  { id: 'prop-006', name: 'Penthouse González Suárez', transaction_type: 'sale', property_type: 'departamento', price: 380000, city: 'Quito', neighborhood: 'González Suárez', bedrooms: 3, bathrooms: 3, parking_spots: 2, area_m2: 180, status: 'vendido', amenities: ['rooftop', 'ascensor', 'lobby', 'cámaras de seguridad'], description: 'Penthouse con vista al valle' },
+  { id: 'prop-007', name: 'Local Comercial Centro', transaction_type: 'rent', property_type: 'local', price: 1500, city: 'Guayaquil', neighborhood: 'Centro', bedrooms: 0, bathrooms: 1, parking_spots: 0, area_m2: 90, status: 'disponible', description: 'Excelente ubicación para retail' },
+  { id: 'prop-008', name: 'Suite Moderna Iñaquito', transaction_type: 'sale', property_type: 'suite', price: 89000, city: 'Quito', neighborhood: 'Iñaquito', bedrooms: 1, bathrooms: 1, parking_spots: 1, area_m2: 55, status: 'disponible', amenities: ['gimnasio', 'lavandería'], description: 'Suite para inversión, alto retorno' },
+];
+
 const today = new Date().toISOString().slice(0, 10);
 
 const PRODUCTS = [
@@ -314,6 +325,93 @@ export const mockHandlers = {
   async 'POST /campaigns/:id/send'(id) {
     await delay(500);
     return { campaign_id: id, status: 'sending' };
+  },
+
+  // ── Properties (BR) ──────────────────────────────────────────────
+
+  async 'GET /properties'() {
+    await delay();
+    return { properties: PROPERTIES_BR };
+  },
+
+  async 'GET /properties/:id'(id) {
+    await delay();
+    const p = PROPERTIES_BR.find(x => x.id === id);
+    if (!p) throw new Error('Property not found');
+    return p;
+  },
+
+  async 'POST /properties'(_, body) {
+    await delay(300);
+    const newProp = { id: `prop-${Date.now()}`, status: 'disponible', created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...body };
+    PROPERTIES_BR.push(newProp);
+    return newProp;
+  },
+
+  async 'PUT /properties/:id'(id, body) {
+    await delay(300);
+    const idx = PROPERTIES_BR.findIndex(p => p.id === id);
+    if (idx === -1) throw new Error('Property not found');
+    Object.assign(PROPERTIES_BR[idx], body, { updated_at: new Date().toISOString() });
+    return PROPERTIES_BR[idx];
+  },
+
+  async 'DELETE /properties/:id'(id) {
+    await delay(200);
+    const idx = PROPERTIES_BR.findIndex(p => p.id === id);
+    if (idx !== -1) PROPERTIES_BR.splice(idx, 1);
+    return null;
+  },
+
+  async 'GET /properties/stats'() {
+    await delay();
+    const stats = { total: PROPERTIES_BR.length, by_status: { disponible: 0, reservado: 0, vendido: 0, rentado: 0 }, by_type: { sale: 0, rent: 0 } };
+    PROPERTIES_BR.forEach(p => {
+      stats.by_status[p.status] = (stats.by_status[p.status] || 0) + 1;
+      stats.by_type[p.transaction_type] = (stats.by_type[p.transaction_type] || 0) + 1;
+    });
+    return stats;
+  },
+
+  async 'POST /properties/import'(csvText) {
+    await delay(500);
+    if (!csvText || typeof csvText !== 'string') return { imported_count: 0, error_count: 0, imported: [], errors: [] };
+    const lines = csvText.trim().split(/\r?\n/);
+    if (lines.length < 2) return { imported_count: 0, error_count: 1, imported: [], errors: [{ row: 1, error: 'No data rows' }] };
+    const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+    const nameIdx = headers.indexOf('name');
+    if (nameIdx === -1) return { imported_count: 0, error_count: 1, imported: [], errors: [{ error: 'CSV must have name column' }] };
+    const imported = [];
+    for (let i = 1; i < lines.length; i++) {
+      const vals = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+      const name = vals[nameIdx];
+      if (!name) continue;
+      const id = `prop-${Date.now()}-${i}`;
+      const newProp = { id, name, transaction_type: vals[headers.indexOf('transaction_type')] || 'sale', property_type: vals[headers.indexOf('property_type')] || 'departamento', price: parseFloat(vals[headers.indexOf('price')]) || 0, city: vals[headers.indexOf('city')] || '', neighborhood: vals[headers.indexOf('neighborhood')] || '', status: 'disponible', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      PROPERTIES_BR.push(newProp);
+      imported.push({ id, name, city: newProp.city });
+    }
+    return { imported_count: imported.length, error_count: 0, imported };
+  },
+
+  async 'POST /properties/extract-flyer'() {
+    await delay(2000);
+    return { success: true, property_data: { name: 'Suite Premium La Carolina', transaction_type: 'sale', property_type: 'departamento', price: 145000, city: 'Quito', neighborhood: 'La Carolina', bedrooms: 2, bathrooms: 2, parking_spots: 1, area_m2: 92, description: 'Hermosa suite con vista panorámica al parque, acabados de lujo, piso de porcelanato.', amenities: ['piscina', 'gimnasio', 'guardianía', 'ascensor'], project_name: 'Torres del Parque', confidence: 0.87 } };
+  },
+
+  async 'POST /properties/sync-vectors'() {
+    await delay(1500);
+    return { synced_count: PROPERTIES_BR.filter(p => p.status === 'disponible').length };
+  },
+
+  async 'POST /properties/query'(_, body) {
+    await delay(1000);
+    return { answer: `Encontré ${PROPERTIES_BR.length} propiedades que podrían interesarle. La mejor opción en ${body?.city || 'su zona'} es "${PROPERTIES_BR[0]?.name}" con un precio de $${PROPERTIES_BR[0]?.price?.toLocaleString()}.`, sources: PROPERTIES_BR.slice(0, 3).map(p => ({ property_id: p.id, name: p.name, score: 0.85 })) };
+  },
+
+  async 'POST /properties/score-lead'() {
+    await delay(800);
+    return { intent: { intent: 'buy', urgency: 'high', budget_mentioned: 120000 }, score: { score: 78, tier: 'hot', summary: 'Lead caliente con intención de compra', action: 'Notificar agente' }, should_notify_agent: true };
   },
 };
 

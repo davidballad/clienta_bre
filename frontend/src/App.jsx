@@ -24,6 +24,7 @@ import BRELanding from './pages/BRELanding';
 import BRLayout from './components/BRLayout';
 import BRDashboard from './pages/BRDashboard';
 import PropertyForm from './pages/PropertyForm';
+import PropertyList from './pages/PropertyList';
 
 export default function App() {
   const { token } = useAuth();
@@ -78,7 +79,7 @@ export default function App() {
         }
       >
         <Route index element={<BRDashboard />} />
-        <Route path="properties" element={<BRDashboard />} />
+        <Route path="properties" element={<PropertyList />} />
         <Route path="properties/new" element={<PropertyForm />} />
         <Route path="properties/:id" element={<PropertyForm />} />
         <Route path="leads" element={<LeadsList />} />
