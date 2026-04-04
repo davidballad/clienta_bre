@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+*.egg
+
+# Node
+node_modules/
+frontend/dist/
+frontend/build/
+.npm
+.eslintcache
+
+# Terraform
+terraform/.terraform/
+terraform/lambda_placeholder.zip
+terraform/packages/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfplan
+terraform/tfplan
+terraform/.terraform.lock.hcl
+terraform/config/bootstrap/.terraform/
+terraform/config/bootstrap/*.tfstate
+terraform/config/bootstrap/*.tfstate.backup
+terraform/config/bootstrap/.terraform.lock.hcl
+# Prod tfvars (may contain bucket/keys; pass secrets via TF_VAR_)
+terraform/config/prod/*.tfvars
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.cursor/
+.mcp.json
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+# Keep .env.example if you want it tracked
+
+# Secrets (never commit)
+credentials.json
+token.json
+*.pem
+workflow.json
+
+# AWS
+.aws-sam/
+
+# Generated diagrams (kept in docs/generated-diagrams/ only)
+generated-diagrams/
+
+# Docs assets (brand/media images; not needed for app deployment)
+docs/images/
+
+# Coverage
+htmlcov/
+.coverage
+coverage.xml
+sanity_check_report.md

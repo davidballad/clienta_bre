@@ -1,0 +1,39 @@
+import { api } from './client';
+
+export function fetchTransactions({ startDate, endDate, nextToken } = {}) {
+  const params = new URLSearchParams();
+  if (startDate) params.set('start_date', startDate);
+  if (endDate) params.set('end_date', endDate);
+  if (nextToken) params.set('next_token', nextToken);
+  const qs = params.toString();
+  return api.get(`/transactions${qs ? `?${qs}` : ''}`);
+}
+
+export function fetchTransaction(id) {
+  return api.get(`/transactions/${id}`);
+}
+
+/** Unused: no UI calls this (sales via WhatsApp/n8n). Use with useRecordSale() if adding a "Record sale" screen. */
+export function recordSale(data) {
+  return api.post('/transactions', data);
+}
+
+export function patchTransaction(id, data) {
+  return api.patch(`/transactions/${id}`, data);
+}
+
+export function cancelTransaction(id) {
+  return api.delete(`/transactions/${id}`);
+}
+
+export function fetchDailySummary(date) {
+  const qs = date ? `?date=${date}` : '';
+  return api.get(`/transactions/summary${qs}`);
+}
+
+export function fetchRevenueRange({ start, end } = {}) {
+  const params = new URLSearchParams();
+  if (start) params.set('start', start);
+  if (end) params.set('end', end);
+  return api.get(`/transactions/revenue?${params.toString()}`);
+}
