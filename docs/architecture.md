@@ -28,13 +28,11 @@ graph TB
 
   subgraph compute [Compute -- Lambda Functions]
     Properties["Properties Service"]
-    Transactions["Transactions Service"]
-    AIInsights["AI Insights Service"]
     Onboarding["Onboarding Service"]
     Users["User Management Service"]
     Messages["Messages Service"]
     Contacts["Contacts Service"]
-    Campaigns["Campaigns Service"]
+    Agents["Agents Service"]
   end
 
   subgraph data [Data Layer]
@@ -58,29 +56,24 @@ graph TB
   APIGW --> JWTAuth
   JWTAuth -->|Validate| Cognito
   APIGW --> Properties
-  APIGW --> Transactions
-  APIGW --> AIInsights
   APIGW --> Onboarding
   APIGW --> Users
   APIGW --> Messages
   APIGW --> Contacts
-  APIGW --> Campaigns
+  APIGW --> Agents
   Meta -->|Webhook| n8n
   n8n -->|"Service Key + Tenant ID"| APIGW
   n8n -->|Reply| Meta
   n8n -->|"Inference API"| Ollama
   Properties --> DynamoDB
-  Transactions --> DynamoDB
-  AIInsights --> DynamoDB
-  AIInsights --> Gemini
   Onboarding --> DynamoDB
   Onboarding --> Cognito
   Users --> DynamoDB
   Users --> Cognito
   Messages --> DynamoDB
   Contacts --> DynamoDB
-  Campaigns --> DynamoDB
-  Transactions --> S3Data
+  Agents --> DynamoDB
+  Properties --> S3Data
 ```
 
 All services run as Lambda functions (Python 3.12) behind a single API Gateway HTTP API. Data is stored in a single DynamoDB table using a multi-tenant single-table design. The React SPA is served from S3 via CloudFront.
@@ -172,7 +165,7 @@ sequenceDiagram
 Key design decisions:
 - Meta sends webhooks directly to n8n (no Lambda in between) for simplicity
 - One n8n workflow handles all tenants — tenant config is loaded dynamically per message
-- The AI Agent uses Ollama (self-hosted) with tool calling for inventory, orders, and contacts
+- The AI Agent uses Ollama (self-hosted) with tool calling for properties, contacts, and lead scoring.
 - Service key auth (`X-Service-Key` + `X-Tenant-Id`) enables n8n to act on behalf of any tenant
 - Tenant resolution uses Meta's `phone_number_id` (stable, unique per business phone)
 
@@ -200,9 +193,6 @@ erDiagram
 | Get tenant                           | `TENANT#<tid>`              | `TENANT#<tid>`                        | Table    |
 | List all properties                  | `TENANT#<tid>`              | `begins_with(PROPERTY#)`              | Table    |
 | Get one property                     | `TENANT#<tid>`              | `PROPERTY#<pid>`                      | Table    |
-| List transactions (newest first)     | `TENANT#<tid>`              | `begins_with(TXN#)` desc             | Table    |
-| Transactions by date range           | `TENANT#<tid>`              | `between(TXN#<start>, TXN#<end>)`    | Table    |
-| Get daily AI insight                 | `TENANT#<tid>`              | `INSIGHT#<YYYY-MM-DD>`                | Table    |
 | List users in tenant                 | `TENANT#<tid>`              | `begins_with(USER#)`                  | Table    |
 | Get one user                         | `TENANT#<tid>`              | `USER#<uid>`                          | Table    |
 | Resolve tenant from phone_number_id  | `PHONE_NUMBER_ID`           | `<phone_number_id>`                   | Table    |
@@ -210,16 +200,7 @@ erDiagram
 
 ### Entity Key Patterns
 
-| Entity            | PK             | SK                          | GSI1PK                          | GSI1SK              |
-| ----------------- | -------------- | --------------------------- | ------------------------------- | ------------------- |
-| Tenant            | `TENANT#<tid>` | `TENANT#<tid>`              | --                              | --                  |
-| Property          | `TENANT#<tid>` | `PROPERTY#<pid>`            | `TENANT#<tid>`                  | `ZONE#<zone>`       |
-| Transaction       | `TENANT#<tid>` | `TXN#<timestamp>#<txnid>`   | --                              | --                  |
-| AI Insight        | `TENANT#<tid>` | `INSIGHT#<YYYY-MM-DD>`      | --                              | --                  |
-| User              | `TENANT#<tid>` | `USER#<uid>`                | --                              | --                  |
-| Phone Mapping     | `PHONE_NUMBER_ID` | `<phone_number_id>`      | --                              | --                  |
-
-Transactions use a composite SK with the ISO timestamp first, enabling efficient date-range queries and natural newest-first ordering with `ScanIndexForward=False`.
+Properties use a composite SK when needed, enabling efficient queries and natural ordering.
 
 ---
 

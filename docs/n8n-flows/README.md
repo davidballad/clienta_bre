@@ -4,23 +4,15 @@ This folder contains n8n workflow templates for the WhatsApp AI agent integratio
 
 ## Architecture
 
-```
 Meta WhatsApp Cloud API
         │
         ▼
-  n8n Webhook (single URL, all tenants)
-        │
-        ▼
-  Resolve tenant (GET /onboarding/resolve-phone?phone_number_id=X)
-        │
-        ▼
-  Load tenant config (response includes meta_access_token, meta_business_account_id, ai_system_prompt, etc.)
+  n8n Webhook / Resolve Tenant
         │
         ▼
   n8n AI Agent Node (Bedrock via credentials)
         │
-        ├── Tool: search_products → GET /inventory
-        ├── Tool: create_order → POST /transactions
+        ├── Tool: search_properties → GET /properties
         ├── Tool: find_contact → GET /contacts?phone=X
         ├── Tool: create_contact → POST /contacts
         ├── Tool: save_message → POST /messages
@@ -126,7 +118,7 @@ Meta may send a GET with `hub.mode=subscribe`, `hub.verify_token`, and `hub.chal
 
 | File | Purpose |
 |------|---------|
-| [../workflow.json](../workflow.json) | Main WhatsApp workflow: 3 options (Order \| Products \| Something else), product carousel + Add to cart, cart/checkout, AI for "Something else" |
+| [../workflow.json](../workflow.json) | Main WhatsApp workflow: Property search, details, contact lead generation, and general AI assistant. |
 
 ## Tenant Configuration
 
@@ -136,17 +128,15 @@ Config (set during onboarding setup) includes:
 
 ```json
 {
-  "business_name": "Maria's Kitchen",
-  "business_type": "restaurant",
+  "business_name": "Inmobiliaria Elite",
+  "business_type": "real_estate",
   "meta_phone_number_id": "106540352242922",
   "meta_business_account_id": "102290129340398",
-  "ai_system_prompt": "You are the virtual assistant for Maria's Kitchen...",
-  "capabilities": ["ordering", "menu_info", "hours_info", "delivery_tracking"],
-  "delivery_enabled": true,
-  "payment_methods": ["cash", "transfer"],
-  "business_hours": {"open": "09:00", "close": "21:00"},
-  "currency": "MXN",
-  "timezone": "America/Mexico_City"
+  "ai_system_prompt": "Eres el asistente virtual inmobiliario de Inmobiliaria Elite...",
+  "capabilities": ["property_info", "scheduling", "agent_handoff"],
+  "business_hours": {"open": "09:00", "close": "18:00"},
+  "currency": "USD",
+  "timezone": "America/Guayaquil"
 }
 ```
 
@@ -156,23 +146,12 @@ The AI Agent node receives `ai_system_prompt` as its system prompt and the rest 
 
 ## API Endpoints Used
 
-| Purpose | Method | Endpoint | Auth |
-|---------|--------|----------|------|
-| Resolve tenant from phone | GET | /onboarding/resolve-phone?phone_number_id=X | Service Key |
-| Get tenant config | GET | /onboarding/config | Service Key or JWT |
-| Find contact by phone | GET | /contacts?phone=X | Service Key |
-| Create contact | POST | /contacts | Service Key |
+| List properties | GET | /properties | Service Key |
+| Get property | GET | /properties/{id} | Service Key |
+| Search properties | GET | /properties?search=X | Service Key |
+| Create lead/contact | POST | /contacts | Service Key |
 | Update contact | PATCH | /contacts/{id} | Service Key |
 | Save message | POST | /messages | Service Key |
-| Update message flags | PATCH | /messages/{id}/flags | Service Key |
-| List messages | GET | /messages?category=X | Service Key |
-| Check inventory | GET | /inventory | Service Key |
-| Get product | GET | /inventory/{id} | Service Key |
-| Create transaction | POST | /transactions | Service Key |
-| Update transaction | PATCH | /transactions/{id} | Service Key |
-| Get cart | GET | /cart?customer_id=X | Service Key |
-| Add to cart | POST | /cart/items | Service Key |
-| Checkout (create order from cart) | POST | /cart/checkout | Service Key |
 
 See the main [API Reference](../api-reference.md) for full request/response formats.
 

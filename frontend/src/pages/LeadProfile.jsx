@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom';
 import { useContact, usePatchContact, useContactNotes, useAddNote, useDeleteNote } from '../hooks/useContacts';
 import { useContactMessages } from '../hooks/useContactMessages';
 import { usePlan } from '../hooks/useTenantConfig';
-import UpgradeWall from '../components/UpgradeWall';
 import { ArrowLeft, MessageSquare, StickyNote, Trash2, Plus } from 'lucide-react';
 
 const normalizePhone = (value) => String(value || '').replace(/\D/g, '');
@@ -60,7 +59,7 @@ function TierBadge({ tier }) {
 
 export default function LeadProfile() {
   const { id } = useParams();
-  const { isPro, isLoading: planLoading } = usePlan();
+  const { isLoading: planLoading } = usePlan();
   const { data: contact, isLoading, error } = useContact(id);
   const {
     data: messagesData,
@@ -81,7 +80,6 @@ export default function LeadProfile() {
     );
   }
 
-  if (!isPro) return <UpgradeWall featureKey="leads" />;
 
   const messages = messagesData?.messages || [];
   const PREVIEW_COUNT = 8;

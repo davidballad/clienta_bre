@@ -42,7 +42,7 @@ Meta must send webhooks to n8n. The workflow uses path **`whatsapp`**.
 
 The access token is **set per tenant** in **Connect WhatsApp** (Settings in the app). Each business owner enters their Meta Access Token and WhatsApp Business Account ID there. n8n receives them via **resolve-phone** (response includes `meta_access_token` and `meta_business_account_id`). All Graph API nodes use **Authorization: Bearer {{ $('Resolve Tenant').item.json.meta_access_token }}** — no env var or shared credential needed.
 
-Nodes that send via Graph API (Send 3 Buttons, Send Products, Send Product Carousel, Send Order Text, Send Added, Send Cart Message, Send Order Placed, Send Reply) get the token dynamically from the Resolve Tenant response.
+Nodes that send via Graph API (Send 3 Buttons, Send Properties, Send Property Details, Send Lead Status, Send Reply) get the token dynamically from the Resolve Tenant response.
 
 ---
 
@@ -81,9 +81,9 @@ In n8n, **activate** the workflow so the webhook is registered. Until it’s act
 
 ## 7. Optional: First message and routing
 
-- The **Route** node derives `route` from the first message or from button replies (`order`, `products`, `more_info`, `add_<id>`, `view_cart`, `checkout`).
-- For the **first** text message (no button), the route is **show_options** → **Send 3 Buttons** (Order | Products | Something else).
-- Ensure your **inventory** has at least one product if you want to test Products / Order / carousel.
+- The **Route** node derives `route` from the first message or from button replies (`properties`, `contact_agent`, `more_info`).
+- For the **first** text message (no button), the route is **show_options** → **Send 3 Buttons** (Properties | Contact | AI Assistant).
+- Ensure your **properties** have at least one entry if you want to test search.
 
 ---
 
@@ -96,6 +96,6 @@ In n8n, **activate** the workflow so the webhook is registered. Until it’s act
 | Service key | Same as `service_api_key` in Terraform (secrets) |
 | Meta token / WABA ID | Set per tenant in **Connect WhatsApp** (Settings); n8n gets them via resolve-phone |
 | Tenant mapping | Connect WhatsApp or `POST /onboarding/setup` with `meta_phone_number_id`, `meta_access_token`, `meta_business_account_id` |
-| Cart endpoints | Already in API: GET /cart, POST /cart/items, POST /cart/checkout |
+| Property endpoints | Already in API: GET /properties, POST /properties/query |
 
-Once these are done, the flow should: verify the webhook, resolve tenant, store inbound message, route by button/text, call inventory/cart/checkout or AI Agent, and send replies via WhatsApp.
+Once these are done, the flow should: verify the webhook, resolve tenant, store inbound message, route by button/text, call properties/contacts API or AI Agent, and send replies via WhatsApp.

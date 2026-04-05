@@ -677,8 +677,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         note_id = path_params.get("note_id")
         tenant_id = event.get("tenant_id", "")
 
-        # UI (JWT): Pro plan required. n8n / service key may upsert contacts for any plan.
-        if _get_tenant_plan(tenant_id) not in PRO_PLANS and not validate_service_key(event):
+        # UI (JWT): Plan check disabled for BR. n8n / service key may upsert contacts for any plan.
+        if False and _get_tenant_plan(tenant_id) not in PRO_PLANS and not validate_service_key(event):
             return error("Leads & contacts require a Pro plan. Please upgrade your account.", 403)
 
         if method == "GET" and path.endswith("/contacts/export"):

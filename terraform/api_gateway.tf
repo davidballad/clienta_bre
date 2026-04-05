@@ -316,3 +316,58 @@ resource "aws_apigatewayv2_route" "properties_template" {
   route_key = "GET /properties/export/template"
   target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
 }
+
+# -----------------------------------------------------------------------------
+# Deployment & Stage
+# -----------------------------------------------------------------------------
+
+resource "aws_apigatewayv2_stage" "default" {
+  api_id      = aws_apigatewayv2_api.main.id
+  name        = "$default"
+  auto_deploy = true
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_gw.arn
+    format          = jsonencode({
+      requestId               = "$context.requestId"
+      sourceIp                = "$context.identity.sourceIp"
+      requestTime             = "$context.requestTime"
+      httpMethod              = "$context.httpMethod"
+      routeKey                = "$context.routeKey"
+      status                  = "$context.status"
+      protocol                = "$context.protocol"
+      responseLength          = "$context.responseLength"
+      error                   = "$context.error.message"
+      integrationErrorMessage = "$context.integrationErrorMessage"
+    })
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_cloudwatch_log_group" "api_gw" {
+  name              = "/aws/api-gw/${aws_apigatewayv2_api.main.name}"
+  retention_in_days = 7
+  tags              = local.common_tags
+}
+
+# -----------------------------------------------------------------------------
+# Lambda Permissions
+# -----------------------------------------------------------------------------
+
+resource "aws_lambda_permission" "api_gateway_services" {
+  for_each      = aws_lambda_function.services
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = each.value.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "api_gateway_properties" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.properties.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
+}

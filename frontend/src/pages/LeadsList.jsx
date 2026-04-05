@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useContacts, usePatchContact, useBulkTagContacts } from '../hooks/useContacts';
 import { downloadLeadsExport } from '../api/contacts';
 import { usePlan } from '../hooks/useTenantConfig';
-import UpgradeWall from '../components/UpgradeWall';
 import {
   Users, Download, SlidersHorizontal, X, ChevronDown, ChevronUp,
   Tag, CheckSquare, Square, Megaphone,
@@ -216,7 +215,7 @@ function hasActiveFilters(f) {
 }
 
 export default function LeadsList() {
-  const { isPro, isLoading: planLoading } = usePlan();
+  const { isLoading: planLoading } = usePlan();
   const navigate = useNavigate();
 
   const [filters, setFilters] = useState(EMPTY_FILTERS);
@@ -247,7 +246,6 @@ export default function LeadsList() {
     );
   }
 
-  if (!isPro) return <UpgradeWall featureKey="leads" />;
 
   const contacts = data?.contacts || [];
 

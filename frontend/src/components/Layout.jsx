@@ -22,10 +22,10 @@ import {
 const NAV_KEYS = [
   { to: '/app', icon: LayoutDashboard, labelKey: 'layout.dashboard', pro: false },
   { to: '/app/messages', icon: MessageSquare, labelKey: 'layout.messages', pro: false },
-  { to: '/app/leads', icon: Users, labelKey: 'layout.leads', pro: true },
+  { to: '/app/leads', icon: Users, labelKey: 'layout.leads', pro: false },
   { to: '/app/inventory', icon: Package, labelKey: 'layout.inventory', pro: false },
   { to: '/app/transactions', icon: ShoppingCart, labelKey: 'layout.transactions', pro: false },
-  { to: '/app/insights', icon: BrainCircuit, labelKey: 'layout.aiInsights', pro: true },
+  { to: '/app/insights', icon: BrainCircuit, labelKey: 'layout.aiInsights', pro: false },
   { to: '/app/analytics', icon: BarChart2, labelKey: 'layout.analytics', pro: false },
   { to: '/app/campaigns', icon: Megaphone, labelKey: 'layout.campaigns', pro: false },
   { to: '/app/settings/whatsapp', icon: Settings, labelKey: 'layout.connectWhatsApp', pro: false },

@@ -31,7 +31,7 @@ from shared.utils import build_pk, build_sk, parse_body, generate_id, now_iso
 # ---------------------------------------------------------------------------
 
 VALID_SCENARIOS = frozenset({"inactive", "featured", "vip"})
-PRO_PLANS = frozenset({"pro"})
+PRO_PLANS = frozenset({"pro", "free"})
 
 
 # ---------------------------------------------------------------------------
