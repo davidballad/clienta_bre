@@ -16,7 +16,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   price_class         = "PriceClass_100"
   default_root_object = "index.html"
   comment             = "${local.name_prefix} frontend"
-  aliases             = ["www.clientaai.com"]
+  aliases             = ["br.clientaai.com"]
 
   origin {
     domain_name = aws_s3_bucket_website_configuration.frontend.website_endpoint

@@ -11,112 +11,28 @@ const PROPERTIES_BR = [
 
 const today = new Date().toISOString().slice(0, 10);
 
-const DAILY_SUMMARY = {
-  date: today,
-  total_revenue: 0,
-  transaction_count: 0,
-  properties_active: PROPERTIES_BR.filter(p => p.status === 'disponible').length,
-};
-
 const CONTACTS = [
-  { contact_id: 'con-001', name: 'Alice Smith', email: 'alice@example.com', phone: '+15551234567', source_channel: 'whatsapp', lead_status: 'closed_won', tier: 'gold', tags: [], conversation_mode: 'bot', created_ts: new Date().toISOString() },
-  { contact_id: 'con-002', name: 'Bob Jones', email: 'bob@example.com', phone: '+15559876543', source_channel: 'whatsapp', lead_status: 'interested', tier: 'silver', tags: [], conversation_mode: 'bot', created_ts: new Date().toISOString() },
-  { contact_id: 'con-003', name: 'Carol Lee', email: 'carol@example.com', phone: '+15557778888', source_channel: 'whatsapp', lead_status: 'prospect', tier: 'bronze', tags: [], conversation_mode: 'human', created_ts: new Date().toISOString() },
+  { contact_id: 'con-001', name: 'Alice Smith', email: 'alice@example.com', phone: '+15551234567', source_channel: 'whatsapp', lead_status: 'closed_won', tier: 'hot', tags: ['comprador'], conversation_mode: 'bot', created_ts: new Date().toISOString() },
+  { contact_id: 'con-002', name: 'Bob Jones', email: 'bob@example.com', phone: '+15559876543', source_channel: 'whatsapp', lead_status: 'interested', tier: 'warm', tags: ['arriendo'], conversation_mode: 'bot', created_ts: new Date().toISOString() },
+  { contact_id: 'con-003', name: 'Carol Lee', email: 'carol@example.com', phone: '+15557778888', source_channel: 'whatsapp', lead_status: 'prospect', tier: 'cold', tags: ['inversionista'], conversation_mode: 'human', created_ts: new Date().toISOString() },
 ];
 
 const MESSAGES = [
-  { message_id: 'msg-001', channel: 'whatsapp', from_number: '+15551234567', to_number: '+15550000000', text: 'I want to order', contact_id: 'con-001', category: 'closed', created_ts: new Date().toISOString() },
-  { message_id: 'msg-002', channel: 'whatsapp', from_number: '+15550000000', to_number: '+15551234567', text: 'Your order has been confirmed!', contact_id: 'con-001', category: 'closed', created_ts: new Date().toISOString() },
-  { message_id: 'msg-003', channel: 'whatsapp', from_number: '+15559876543', to_number: '+15550000000', text: 'I want info', contact_id: 'con-002', category: 'active', created_ts: new Date().toISOString() },
-  { message_id: 'msg-004', channel: 'whatsapp', from_number: '+15557778888', to_number: '+15550000000', text: 'Order', contact_id: 'con-003', category: 'incomplete', created_ts: new Date().toISOString() },
+  { message_id: 'msg-001', channel: 'whatsapp', from_number: '+15551234567', to_number: '+15550000000', text: 'Hola, me gustaría agendar una visita para la Suite en La Carolina', contact_id: 'con-001', category: 'closed', created_ts: new Date().toISOString() },
+  { message_id: 'msg-002', channel: 'whatsapp', from_number: '+15550000000', to_number: '+15551234567', text: '¡Claro! Tenemos disponibilidad este jueves a las 10am. ¿Te queda bien?', contact_id: 'con-001', category: 'closed', created_ts: new Date().toISOString() },
+  { message_id: 'msg-003', channel: 'whatsapp', from_number: '+15559876543', to_number: '+15550000000', text: '¿Cuentan con departamentos de 3 habitaciones en Cumbayá?', contact_id: 'con-002', category: 'active', created_ts: new Date().toISOString() },
+  { message_id: 'msg-004', channel: 'whatsapp', from_number: '+15557778888', to_number: '+15550000000', text: 'Me interesa invertir en locales comerciales, ¿tienen opciones?', contact_id: 'con-003', category: 'active', created_ts: new Date().toISOString() },
 ];
 
-const INSIGHTS = {
-  insight: {
-    summary: 'Your electronics category is driving 65% of revenue today. Wireless Earbuds Pro and Webcam HD 1080p are top sellers. Three products (USB-C Hub, Mechanical Keyboard, Laptop Stand) are critically low on stock and need immediate reordering to avoid stockouts this week.',
-    generated_at: new Date().toISOString(),
-    forecasts: [
-      'Wireless Earbuds Pro demand expected to increase 20% next week based on seasonal trends',
-      'Webcam sales trending upward — consider stocking 50+ units for the upcoming quarter',
-      'Monitor Light Bar showing steady growth; current stock will last approximately 3 weeks',
-    ],
-    reorder_suggestions: [
-      { product: 'USB-C Hub 7-in-1', quantity: 50, description: 'USB-C Hub 7-in-1: order 50 units — only 8 remaining (below threshold of 15)' },
-      { product: 'Mechanical Keyboard', quantity: 30, description: 'Mechanical Keyboard: order 30 units — only 5 remaining (below threshold of 10)' },
-      { product: 'Laptop Stand Aluminum', quantity: 25, description: 'Laptop Stand Aluminum: order 25 units — only 3 remaining (below threshold of 8)' },
-    ],
-    spending_trends: [
-      'Average order value increased 12% compared to last week',
-      'Card payments account for 67% of transactions, up from 58% last month',
-      'Afternoon sales (1-5 PM) contribute 54% of daily revenue',
-    ],
-    revenue_insights: [
-      { day: 'Mon', revenue: 480 },
-      { day: 'Tue', revenue: 620 },
-      { day: 'Wed', revenue: 390 },
-      { day: 'Thu', revenue: 720 },
-      { day: 'Fri', revenue: 850 },
-      { day: 'Sat', revenue: 560 },
-      { day: 'Sun', revenue: 310 },
-    ],
-  },
-};
 
 function delay(ms = 200) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export const mockHandlers = {
-  async 'GET /inventory'() {
-    await delay();
-    return { properties: PROPERTIES_BR };
-  },
-
-  async 'GET /inventory/:id'(id) {
-    await delay();
-    const p = PROPERTIES_BR.find((x) => x.id === id);
-    if (!p) throw new Error('Property not found');
-    return p;
-  },
-
-  async 'POST /inventory'(_, body) {
-    await delay(300);
-    const newProp = { id: `prop-${Date.now()}`, ...body, status: 'disponible' };
-    PROPERTIES_BR.push(newProp);
-    return newProp;
-  },
-
-  async 'GET /transactions'() {
-    await delay();
-    return { transactions: TRANSACTIONS };
-  },
-
-  async 'GET /transactions/summary'() {
-    await delay();
-    return DAILY_SUMMARY;
-  },
-
-  async 'POST /transactions'(_, body) {
-    await delay(300);
-    const newTxn = { id: `txn-${Date.now()}`, created_at: new Date().toISOString(), ...body };
-    TRANSACTIONS.unshift(newTxn);
-    return newTxn;
-  },
-
   async 'GET /onboarding/config'() {
     await delay();
     return { plan: 'pro', business_name: 'Clienta Real Estate', business_type: 'real_estate' };
-  },
-
-  async 'GET /insights'() {
-    await delay(400);
-    return INSIGHTS;
-  },
-
-  async 'POST /insights/generate'() {
-    await delay(1500);
-    INSIGHTS.insight.generated_at = new Date().toISOString();
-    return INSIGHTS;
   },
 
   async 'GET /contacts'() {
@@ -178,31 +94,6 @@ export const mockHandlers = {
     Object.assign(MESSAGES[idx], body);
     return MESSAGES[idx];
   },
-  async 'PATCH /transactions/:id'(id, body) {
-    await delay(300);
-    const idx = TRANSACTIONS.findIndex((t) => t.id === id);
-    if (idx === -1) throw new Error('Transaction not found');
-    Object.assign(TRANSACTIONS[idx], body);
-    return TRANSACTIONS[idx];
-  },
-
-  async 'GET /transactions/revenue'() {
-    await delay(300);
-    const days = 30;
-    const revenue = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      revenue.push({
-        date: d.toISOString().slice(0, 10),
-        revenue: Math.round(Math.random() * 800 + 200),
-        order_count: Math.round(Math.random() * 8 + 1),
-        items_sold: Math.round(Math.random() * 15 + 2),
-      });
-    }
-    return { revenue };
-  },
-
   async 'GET /contacts/stats'() {
     await delay(200);
     return {
@@ -323,6 +214,17 @@ export const mockHandlers = {
   async 'POST /properties/sync-vectors'() {
     await delay(1500);
     return { synced_count: PROPERTIES_BR.filter(p => p.status === 'disponible').length };
+  },
+
+  async 'POST /properties/upload-doc'(_, body) {
+    await delay(300);
+    const s3_key = `docs/mock/${body?.property_id}/${Date.now()}_${body?.filename || 'document.pdf'}`;
+    return { upload_url: null, document_url: `https://mock-bucket.s3.amazonaws.com/${s3_key}`, s3_key };
+  },
+
+  async 'POST /properties/process-doc'(_, body) {
+    await delay(800);
+    return { success: true, vector_key: `mock#doc#${body?.s3_key}` };
   },
 
   async 'POST /properties/query'(_, body) {

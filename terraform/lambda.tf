@@ -97,7 +97,7 @@ data "aws_iam_policy_document" "lambda_cognito" {
       "cognito-idp:AdminGetUser",
       "cognito-idp:AdminUpdateUserAttributes"
     ]
-    resources = [aws_cognito_user_pool.main.arn]
+    resources = ["arn:aws:cognito-idp:${var.aws_region}:${data.aws_caller_identity.current.account_id}:userpool/${var.cognito_user_pool_id}"]
   }
 }
 
@@ -119,8 +119,8 @@ data "aws_iam_policy_document" "lambda_bedrock" {
       "bedrock:InvokeModelWithResponseStream"
     ]
     resources = [
-      "arn:aws:bedrock:${data.aws_region.current.name}::foundation-model/amazon.titan-embed-text-v2:0",
-      "arn:aws:bedrock:${data.aws_region.current.name}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0"
+      "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.titan-embed-text-v2:0",
+      "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0"
     ]
   }
 }
@@ -150,8 +150,8 @@ data "aws_iam_policy_document" "lambda_s3vectors" {
       "s3vectors:ListVectors"
     ]
     resources = [
-      aws_s3vectors_vector_bucket.br_properties.arn,
-      "${aws_s3vectors_vector_bucket.br_properties.arn}/*"
+      aws_s3vectors_vector_bucket.br_properties.vector_bucket_arn,
+      "${aws_s3vectors_vector_bucket.br_properties.vector_bucket_arn}/*"
     ]
   }
 }
@@ -256,7 +256,7 @@ resource "aws_lambda_function" "services" {
   environment {
     variables = {
       TABLE_NAME               = aws_dynamodb_table.main.name
-      COGNITO_USER_POOL_ID     = aws_cognito_user_pool.main.id
+      COGNITO_USER_POOL_ID     = var.cognito_user_pool_id
       DATA_BUCKET              = aws_s3_bucket.data.id
       GEMINI_API_KEY           = var.gemini_api_key
       GEMINI_MODEL_ID          = var.gemini_model_id
@@ -288,7 +288,7 @@ resource "aws_lambda_function" "properties" {
   environment {
     variables = {
       TABLE_NAME           = aws_dynamodb_table.main.name
-      COGNITO_USER_POOL_ID = aws_cognito_user_pool.main.id
+      COGNITO_USER_POOL_ID = var.cognito_user_pool_id
       DATA_BUCKET          = aws_s3_bucket.data.id
       SERVICE_API_KEY      = var.service_api_key
       GEMINI_API_KEY       = var.gemini_api_key

@@ -19,7 +19,7 @@ const outFile = path.join(root, "docs", "workflow.json");
 
 const base = process.env.N8N_API_URL?.replace(/\/$/, "");
 const key = process.env.N8N_API_KEY;
-const id = process.env.N8N_WORKFLOW_ID || "1XSblgQFyQKsEx5a";
+const id = process.env.N8N_WORKFLOW_ID || "8dFQsDIVEz67TrLn";
 
 if (!base || !key) {
   console.error("Set N8N_API_URL and N8N_API_KEY (n8n Public API).");

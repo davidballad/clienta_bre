@@ -13,6 +13,7 @@ import WhatsAppSetup from './pages/WhatsAppSetup';
 import BRELanding from './pages/BRELanding';
 import BRLayout from './components/BRLayout';
 import BRDashboard from './pages/BRDashboard';
+import Analytics from './pages/Analytics';
 import PropertyForm from './pages/PropertyForm';
 import PropertyList from './pages/PropertyList';
 
@@ -58,7 +59,7 @@ export default function App() {
         <Route path="leads" element={<LeadsList />} />
         <Route path="leads/:id" element={<LeadProfile />} />
         <Route path="messages" element={<MessagesInbox />} />
-        <Route path="documents" element={<BRDashboard />} />
+        <Route path="analytics" element={<Analytics />} />
         <Route path="settings" element={<WhatsAppSetup />} />
       </Route>
 

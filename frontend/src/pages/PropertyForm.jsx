@@ -18,7 +18,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useCreateProperty, useUpdateProperty, useProperty, useExtractFlyer } from '../hooks/useProperties';
-import { getDocumentUploadUrl } from '../api/properties';
+import { getDocumentUploadUrl, processDocument } from '../api/properties';
 
 const PROPERTY_TYPES = [
   { value: 'departamento', label: 'Departamento / Suite' },
@@ -125,6 +125,44 @@ export default function PropertyForm() {
 
   const removeDoc = (index) => setDocuments(prev => prev.filter((_, i) => i !== index));
 
+  const uploadDocuments = async (propertyId) => {
+    const pending = documents.filter((d) => !d.uploaded);
+    if (!pending.length) return;
+
+    for (let i = 0; i < documents.length; i++) {
+      const doc = documents[i];
+      if (doc.uploaded) continue;
+
+      setDocuments((prev) => prev.map((d, idx) => idx === i ? { ...d, uploading: true } : d));
+
+      try {
+        const { upload_url, s3_key } = await getDocumentUploadUrl({
+          propertyId,
+          filename: doc.file.name,
+          contentType: doc.file.type || 'application/pdf',
+        });
+
+        // PUT directly to S3 presigned URL (bypasses API auth)
+        if (upload_url) {
+          await fetch(upload_url, {
+            method: 'PUT',
+            body: doc.file,
+            headers: { 'Content-Type': doc.file.type || 'application/pdf' },
+          });
+        }
+
+        // Trigger RAG indexing
+        if (s3_key) {
+          await processDocument({ propertyId, s3Key: s3_key });
+        }
+
+        setDocuments((prev) => prev.map((d, idx) => idx === i ? { ...d, uploading: false, uploaded: true } : d));
+      } catch (err) {
+        setDocuments((prev) => prev.map((d, idx) => idx === i ? { ...d, uploading: false, error: err.message } : d));
+      }
+    }
+  };
+
   // ── Flyer Extraction ────────────────────────────────────────────
   const handleFlyerUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -193,11 +231,14 @@ export default function PropertyForm() {
     };
 
     try {
+      let propertyId = id;
       if (isEditing) {
         await updateMutation.mutateAsync({ id, data: payload });
       } else {
-        await createMutation.mutateAsync(payload);
+        const created = await createMutation.mutateAsync(payload);
+        propertyId = created?.id || created?.property_id;
       }
+      if (propertyId) await uploadDocuments(propertyId);
       navigate('/br/properties');
     } catch (err) {
       setToast({ type: 'error', message: err.message });
@@ -468,14 +509,18 @@ export default function PropertyForm() {
           />
           <div className="space-y-2">
             {documents.map((doc, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5">
+              <div key={i} className={`flex items-center gap-3 rounded-lg border px-4 py-2.5 ${doc.error ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
                 <FileText className="h-4 w-4 text-emerald-600 shrink-0" />
                 <span className="flex-1 truncate text-sm text-gray-700">{doc.name}</span>
                 <span className="text-xs text-gray-400">{doc.type}</span>
+                {doc.uploading && <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />}
                 {doc.uploaded && <CheckCircle className="h-4 w-4 text-emerald-500" />}
-                <button type="button" onClick={() => removeDoc(i)} className="text-gray-400 hover:text-red-500">
-                  <X className="h-4 w-4" />
-                </button>
+                {doc.error && <span className="text-xs text-red-500">{doc.error}</span>}
+                {!doc.uploading && (
+                  <button type="button" onClick={() => removeDoc(i)} className="text-gray-400 hover:text-red-500">
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             ))}
           </div>

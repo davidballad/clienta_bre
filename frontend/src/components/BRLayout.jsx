@@ -6,14 +6,12 @@ import {
   Building2,
   Users,
   MessageSquare,
-  FileText,
   Settings,
   LogOut,
   Menu,
   X,
   Upload,
   BarChart2,
-  TrendingUp,
 } from 'lucide-react';
 
 const BR_NAV = [
@@ -22,7 +20,6 @@ const BR_NAV = [
   { to: '/br/properties/new', icon: Upload, label: 'Agregar Inmueble' },
   { to: '/br/leads', icon: Users, label: 'Leads' },
   { to: '/br/messages', icon: MessageSquare, label: 'Mensajes' },
-  { to: '/br/documents', icon: FileText, label: 'Documentos' },
   { to: '/br/analytics', icon: BarChart2, label: 'Analíticas' },
   { to: '/br/settings', icon: Settings, label: 'Configuración' },
 ];

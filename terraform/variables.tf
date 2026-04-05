@@ -20,31 +20,18 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-# Frontend URLs for Cognito (callback + sign-out). Include both www and root for clientaai.com; localhost for local testing.
-variable "cognito_callback_urls" {
-  description = "Allowed callback URLs for Cognito app client (redirect after sign-in, etc.)"
-  type        = list(string)
-  default = [
-    "https://www.clientaai.com",
-    "https://www.clientaai.com/",
-    "https://clientaai.com",
-    "https://clientaai.com/",
-    "http://localhost:5173",
-    "http://localhost:5173/"
-  ]
+# -----------------------------------------------------------------------------
+# Cognito — managed by the main clientaai repo; referenced here as data only
+# -----------------------------------------------------------------------------
+
+variable "cognito_user_pool_id" {
+  description = "Existing Cognito User Pool ID (managed by the main clientaai repo)"
+  type        = string
 }
 
-variable "cognito_logout_urls" {
-  description = "Allowed sign-out URLs for Cognito app client"
-  type        = list(string)
-  default = [
-    "https://www.clientaai.com",
-    "https://www.clientaai.com/",
-    "https://clientaai.com",
-    "https://clientaai.com/",
-    "http://localhost:5173",
-    "http://localhost:5173/"
-  ]
+variable "cognito_client_id" {
+  description = "Existing Cognito User Pool Client ID for the BR SPA"
+  type        = string
 }
 
 variable "dynamodb_table_name" {
@@ -95,7 +82,7 @@ variable "n8n_campaign_webhook_url" {
 variable "acm_certificate_arn" {
   description = "ARN of the ACM certificate for the custom domain (must be in us-east-1)"
   type        = string
-  default     = "arn:aws:acm:us-east-1:533590176318:certificate/b5920cfd-7efb-43df-8567-85d9119e2aa5"
+  default     = "arn:aws:acm:us-east-1:533590176318:certificate/de8b7248-a2c8-4954-a592-e25a5597c475"
 }
 
 # -----------------------------------------------------------------------------

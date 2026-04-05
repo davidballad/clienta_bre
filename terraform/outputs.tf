@@ -8,13 +8,13 @@ output "api_endpoint" {
 }
 
 output "cognito_user_pool_id" {
-  description = "Cognito User Pool ID"
-  value       = aws_cognito_user_pool.main.id
+  description = "Cognito User Pool ID (managed by main clientaai repo)"
+  value       = var.cognito_user_pool_id
 }
 
 output "cognito_client_id" {
-  description = "Cognito User Pool Client ID (for SPA)"
-  value       = aws_cognito_user_pool_client.spa.id
+  description = "Cognito User Pool Client ID for the BR SPA"
+  value       = var.cognito_client_id
 }
 
 output "frontend_bucket" {
