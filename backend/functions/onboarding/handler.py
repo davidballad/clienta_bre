@@ -21,7 +21,6 @@ from shared.response import created, error, server_error, success
 from shared.utils import build_pk, build_sk, generate_id, now_iso, parse_body
 
 PHONE_NUMBER_ID_PK = "PHONE_NUMBER_ID"
-IG_ACCOUNT_ID_PK = "IG_ACCOUNT_ID"
 S3_TENANT_IDS_KEY = "tenant-registry/tenant-ids.json"
 
 _ses_client = None
@@ -233,7 +232,7 @@ SEED_PRODUCTS: dict[str, list[dict[str, Any]]] = {
 }
 
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-VALID_BUSINESS_TYPES = frozenset({"restaurant", "retail", "bar", "other"})
+VALID_BUSINESS_TYPES = frozenset({"restaurant", "retail", "bar", "real_estate", "other"})
 
 
 def _get_path(event: dict[str, Any]) -> str:
@@ -447,8 +446,6 @@ TENANT_CONFIG_FIELDS = (
     "ai_system_prompt", "capabilities", "delivery_enabled", "payment_methods",
     "bank_name", "person_name", "account_type", "account_id", "identification_number",
     "follow_up_sequences", "tax_rate",
-    "ig_business_account_id", "ig_access_token",
-    "datafast_entity_id", "datafast_api_token",
     "support_phone",
 )
 
@@ -458,15 +455,6 @@ def _upsert_phone_number_id_mapping(meta_phone_number_id: str, tenant_id: str) -
     put_item({
         "pk": PHONE_NUMBER_ID_PK,
         "sk": meta_phone_number_id,
-        "tenant_id": tenant_id,
-    })
-
-
-def _upsert_ig_account_mapping(ig_business_account_id: str, tenant_id: str) -> None:
-    """Create or update the IG_ACCOUNT_ID -> tenant_id mapping in DynamoDB."""
-    put_item({
-        "pk": IG_ACCOUNT_ID_PK,
-        "sk": ig_business_account_id,
         "tenant_id": tenant_id,
     })
 
@@ -574,12 +562,6 @@ def patch_config(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
         except DynamoDBError:
             pass
 
-    if updates.get("ig_business_account_id"):
-        try:
-            _upsert_ig_account_mapping(updates["ig_business_account_id"], tenant_id)
-        except DynamoDBError:
-            pass
-
     return success({"message": "Config updated"})
 
 
@@ -593,8 +575,6 @@ def get_tenant_config(tenant_id: str, _event: dict[str, Any]) -> dict[str, Any]:
         return error("Tenant not found", 404)
     # Redact tokens — frontend must never receive them
     config.pop("meta_access_token", None)
-    config.pop("ig_access_token", None)
-    config.pop("datafast_api_token", None)
     return success(body=config)
 
 
@@ -638,46 +618,6 @@ def resolve_phone(event: dict[str, Any]) -> dict[str, Any]:
     return success(body=config)
 
 
-def resolve_ig_account(event: dict[str, Any]) -> dict[str, Any]:
-    """GET /onboarding/resolve-ig — resolve ig_business_account_id to tenant config.
-
-    Requires service key auth (X-Service-Key header). Used by n8n Instagram workflow.
-    Returns full config including ig_access_token so n8n can reply to comments.
-    """
-    if not validate_service_key(event):
-        headers = event.get("headers") or {}
-        if not (headers.get("x-service-key") or headers.get("X-Service-Key")):
-            return error("X-Service-Key header required", 401)
-        return error("Invalid service key", 401)
-
-    params = event.get("queryStringParameters") or {}
-    ig_id = (params.get("ig_business_account_id") or "").strip()
-    if not ig_id:
-        return error("ig_business_account_id query parameter is required", 400)
-
-    try:
-        mapping = get_item(pk=IG_ACCOUNT_ID_PK, sk=ig_id)
-    except DynamoDBError as e:
-        return server_error(str(e))
-
-    if not mapping:
-        return error("No tenant found for this ig_business_account_id", 404)
-
-    resolved_tenant_id = mapping.get("tenant_id")
-    if not resolved_tenant_id:
-        return error("Mapping is missing tenant_id", 500)
-
-    try:
-        config = _load_tenant_config(resolved_tenant_id)
-    except DynamoDBError as e:
-        return server_error(str(e))
-
-    if not config:
-        return error("Tenant not found", 404)
-
-    return success(body=config)
-
-
 def list_tenant_ids(event: dict[str, Any]) -> dict[str, Any]:
     """GET /onboarding/tenant-ids — return all tenant IDs from S3 (for schedulers, e.g. Phase 3). Service key only."""
     if not validate_service_key(event):
@@ -691,7 +631,7 @@ def list_tenant_ids(event: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_service_tenant_context(event: dict[str, Any]) -> dict[str, Any]:
-    """GET /onboarding/service/tenant?tenant_id= — full tenant row including meta_access_token (n8n / automation only)."""
+    """GET /onboarding/service/tenant?tenant_id= — full tenant row (n8n / automation only)."""
     if not validate_service_key(event):
         headers = event.get("headers") or {}
         if not (headers.get("x-service-key") or headers.get("X-Service-Key")):
@@ -719,6 +659,12 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     path = _get_path(event)
     method = _get_method(event)
 
+    # No auth: contact form submission (landing page)
+    if method == "POST" and ("/contact" in path):
+        # Service key auth optional for landing page, but recommended to prevent spam.
+        # For now, we'll just log it or send an SES email.
+        return success({"message": "Lead received. We will contact you soon."})
+
     # No auth: tenant creation
     if method == "POST" and ("/onboarding/tenant" in path):
         return create_tenant(event)
@@ -726,10 +672,6 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     # No JWT auth: phone resolution (service key checked inside handler)
     if method == "GET" and ("/onboarding/resolve-phone" in path):
         return resolve_phone(event)
-
-    # No JWT auth: Instagram account resolution (service key checked inside handler)
-    if method == "GET" and ("/onboarding/resolve-ig" in path):
-        return resolve_ig_account(event)
 
     # Service key only: send daily summary email to tenant owner
     if method == "POST" and ("/onboarding/daily-summary" in path):

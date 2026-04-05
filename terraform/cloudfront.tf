@@ -43,7 +43,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   ordered_cache_behavior {
-    path_pattern           = "/store/*"
+    path_pattern           = "/properties/*"
     target_origin_id       = "APIGW"
     viewer_protocol_policy = "redirect-to-https"
     allowed_methods        = ["GET", "HEAD"]

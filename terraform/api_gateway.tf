@@ -174,10 +174,22 @@ resource "aws_apigatewayv2_route" "messages_mark_conversation" {
   target    = "integrations/${aws_apigatewayv2_integration.messages.id}"
 }
 
+resource "aws_apigatewayv2_route" "messages_flags" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "PATCH /messages/{id}/flags"
+  target    = "integrations/${aws_apigatewayv2_integration.messages.id}"
+}
+
 # --- Onboarding ---
 resource "aws_apigatewayv2_route" "onboarding_tenant" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "POST /onboarding/tenant"
+  target    = "integrations/${aws_apigatewayv2_integration.onboarding.id}"
+}
+
+resource "aws_apigatewayv2_route" "contact_landing" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /contact"
   target    = "integrations/${aws_apigatewayv2_integration.onboarding.id}"
 }
 
@@ -231,6 +243,7 @@ resource "aws_apigatewayv2_route" "properties_list" {
   route_key = "GET /properties"
   target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
 }
+
 
 resource "aws_apigatewayv2_route" "properties_create" {
   api_id    = aws_apigatewayv2_api.main.id

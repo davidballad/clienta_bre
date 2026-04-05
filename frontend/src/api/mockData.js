@@ -11,33 +11,11 @@ const PROPERTIES_BR = [
 
 const today = new Date().toISOString().slice(0, 10);
 
-const PRODUCTS = [
-  { id: 'prod-001', name: 'Wireless Earbuds Pro', category: 'Electronics', quantity: 145, unit_cost: 29.99, reorder_threshold: 20, sku: 'WEP-001', image_url: 'https://images.unsplash.com/photo-1598331668826-20cecc596b86?w=100' },
-  { id: 'prod-002', name: 'USB-C Hub 7-in-1', category: 'Electronics', quantity: 8, unit_cost: 45.00, reorder_threshold: 15, sku: 'UCH-002' },
-  { id: 'prod-003', name: 'Ergonomic Mouse', category: 'Accessories', quantity: 62, unit_cost: 34.50, reorder_threshold: 10, sku: 'ERM-003' },
-  { id: 'prod-004', name: 'Mechanical Keyboard', category: 'Accessories', quantity: 5, unit_cost: 89.99, reorder_threshold: 10, sku: 'MKB-004' },
-  { id: 'prod-005', name: 'Webcam HD 1080p', category: 'Electronics', quantity: 33, unit_cost: 54.99, reorder_threshold: 10, sku: 'WCH-005' },
-  { id: 'prod-006', name: 'Laptop Stand Aluminum', category: 'Accessories', quantity: 3, unit_cost: 42.00, reorder_threshold: 8, sku: 'LSA-006' },
-  { id: 'prod-007', name: 'Noise Cancelling Headphones', category: 'Electronics', quantity: 27, unit_cost: 129.99, reorder_threshold: 10, sku: 'NCH-007' },
-  { id: 'prod-008', name: 'Monitor Light Bar', category: 'Lighting', quantity: 41, unit_cost: 38.00, reorder_threshold: 12, sku: 'MLB-008' },
-  { id: 'prod-009', name: 'Desk Cable Organizer', category: 'Accessories', quantity: 92, unit_cost: 12.99, reorder_threshold: 20, sku: 'DCO-009' },
-  { id: 'prod-010', name: 'Portable SSD 1TB', category: 'Storage', quantity: 18, unit_cost: 79.99, reorder_threshold: 10, sku: 'PSD-010' },
-];
-
-const TRANSACTIONS = [
-  { id: 'txn-001', created_at: `${today}T09:14:00Z`, items: [{ product_id: 'prod-001', product_name: 'Wireless Earbuds Pro', quantity: 3 }], total: 89.97, payment_method: 'card', notes: 'Bulk order' },
-  { id: 'txn-002', created_at: `${today}T10:32:00Z`, items: [{ product_id: 'prod-003', product_name: 'Ergonomic Mouse', quantity: 2 }, { product_id: 'prod-009', product_name: 'Desk Cable Organizer', quantity: 1 }], total: 81.99, payment_method: 'card', notes: '' },
-  { id: 'txn-003', created_at: `${today}T11:45:00Z`, items: [{ product_id: 'prod-007', product_name: 'Noise Cancelling Headphones', quantity: 1 }], total: 129.99, payment_method: 'cash', notes: 'Walk-in customer' },
-  { id: 'txn-004', created_at: `${today}T13:22:00Z`, items: [{ product_id: 'prod-005', product_name: 'Webcam HD 1080p', quantity: 2 }], total: 109.98, payment_method: 'card', notes: '' },
-  { id: 'txn-005', created_at: `${today}T14:50:00Z`, items: [{ product_id: 'prod-010', product_name: 'Portable SSD 1TB', quantity: 1 }, { product_id: 'prod-008', product_name: 'Monitor Light Bar', quantity: 1 }], total: 117.99, payment_method: 'card', notes: 'Home office setup' },
-  { id: 'txn-006', created_at: `${today}T15:30:00Z`, items: [{ product_id: 'prod-004', product_name: 'Mechanical Keyboard', quantity: 1 }], total: 89.99, payment_method: 'cash', notes: '' },
-];
-
 const DAILY_SUMMARY = {
   date: today,
-  total_revenue: 619.91,
-  transaction_count: 6,
-  items_sold: 12,
+  total_revenue: 0,
+  transaction_count: 0,
+  properties_active: PROPERTIES_BR.filter(p => p.status === 'disponible').length,
 };
 
 const CONTACTS = [
@@ -91,78 +69,21 @@ function delay(ms = 200) {
 export const mockHandlers = {
   async 'GET /inventory'() {
     await delay();
-    return { products: PRODUCTS };
+    return { properties: PROPERTIES_BR };
   },
 
   async 'GET /inventory/:id'(id) {
     await delay();
-    const product = PRODUCTS.find((p) => p.id === id);
-    if (!product) throw new Error('Product not found');
-    return product;
+    const p = PROPERTIES_BR.find((x) => x.id === id);
+    if (!p) throw new Error('Property not found');
+    return p;
   },
 
   async 'POST /inventory'(_, body) {
     await delay(300);
-    const newProduct = { id: `prod-${Date.now()}`, ...body, quantity: body.quantity || 0 };
-    PRODUCTS.push(newProduct);
-    return newProduct;
-  },
-
-  async 'PUT /inventory/:id'(id, body) {
-    await delay(300);
-    const idx = PRODUCTS.findIndex((p) => p.id === id);
-    if (idx === -1) throw new Error('Product not found');
-    Object.assign(PRODUCTS[idx], body);
-    return PRODUCTS[idx];
-  },
-
-  async 'DELETE /inventory/:id'(id) {
-    await delay(200);
-    const idx = PRODUCTS.findIndex((p) => p.id === id);
-    if (idx !== -1) PRODUCTS.splice(idx, 1);
-    return null;
-  },
-
-  async 'POST /inventory/import'(csvText) {
-    await delay(500);
-    if (!csvText || typeof csvText !== 'string') return { imported_count: 0, error_count: 0, imported: [], errors: [] };
-    const lines = csvText.trim().split(/\r?\n/);
-    if (lines.length < 2) return { imported_count: 0, error_count: 0, imported: [], errors: [{ row: 1, error: 'No data rows' }] };
-    const headers = lines[0].toLowerCase().split(',').map((h) => h.trim());
-    const nameIdx = headers.indexOf('name');
-    const qtyIdx = headers.indexOf('quantity');
-    if (nameIdx === -1 || qtyIdx === -1) return { imported_count: 0, error_count: 1, imported: [], errors: [{ error: 'CSV must have name and quantity columns' }] };
-    const imported = [];
-    const errors = [];
-    for (let i = 1; i < lines.length; i++) {
-      const vals = lines[i].split(',').map((v) => v.trim());
-      const name = vals[nameIdx];
-      const qty = parseInt(vals[qtyIdx], 10);
-      if (!name) { errors.push({ row: i + 1, error: 'name required' }); continue; }
-      if (isNaN(qty) || qty < 0) { errors.push({ row: i + 1, name, error: 'invalid quantity' }); continue; }
-      const id = `prod-${Date.now()}-${i}`;
-      const unitCost = parseFloat(vals[headers.indexOf('unit_cost')]);
-      const cat = vals[headers.indexOf('category')];
-      const unit = vals[headers.indexOf('unit')] || 'each';
-      const sku = vals[headers.indexOf('sku')];
-      const imageUrl = vals[headers.indexOf('image_url')];
-      const notes = vals[headers.indexOf('notes')];
-      const reorder = parseInt(vals[headers.indexOf('reorder_threshold')], 10) || 10;
-      PRODUCTS.push({
-        id,
-        name,
-        category: cat || null,
-        quantity: qty,
-        unit_cost: isNaN(unitCost) ? null : unitCost,
-        reorder_threshold: isNaN(reorder) ? 10 : reorder,
-        unit: unit || 'each',
-        sku: sku || null,
-        image_url: imageUrl || null,
-        notes: notes || null,
-      });
-      imported.push({ id, name, quantity: qty });
-    }
-    return { imported_count: imported.length, error_count: errors.length, imported, errors: errors.slice(0, 50) };
+    const newProp = { id: `prop-${Date.now()}`, ...body, status: 'disponible' };
+    PROPERTIES_BR.push(newProp);
+    return newProp;
   },
 
   async 'GET /transactions'() {
@@ -184,7 +105,7 @@ export const mockHandlers = {
 
   async 'GET /onboarding/config'() {
     await delay();
-    return { plan: 'pro', business_name: 'Demo Store', business_type: 'retail' };
+    return { plan: 'pro', business_name: 'Clienta Real Estate', business_type: 'real_estate' };
   },
 
   async 'GET /insights'() {

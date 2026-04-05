@@ -101,10 +101,6 @@ class Tenant(_BaseModel):
     meta_phone_number_id: str | None = None
     meta_business_account_id: str | None = None
     meta_access_token: str | None = None
-    ig_business_account_id: str | None = None
-    ig_access_token: str | None = None
-    datafast_entity_id: str | None = None
-    datafast_api_token: str | None = None
     ai_system_prompt: str | None = None
     bank_name: str | None = None
     person_name: str | None = None
@@ -112,8 +108,6 @@ class Tenant(_BaseModel):
     account_id: str | None = None
     identification_number: str | None = None
     capabilities: list[str] | None = None
-    delivery_enabled: bool = False
-    payment_methods: list[str] | None = None
     currency: str | None = None
     timezone: str | None = None
     business_hours: dict[str, Any] | None = None

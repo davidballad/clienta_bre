@@ -72,22 +72,6 @@ variable "gemini_model_id" {
 }
 
 # -----------------------------------------------------------------------------
-# Square Integration
-# -----------------------------------------------------------------------------
-
-variable "square_application_id" {
-  description = "Square application ID"
-  type        = string
-  default     = ""
-}
-
-variable "square_environment" {
-  description = "Square environment: sandbox or production"
-  type        = string
-  default     = "sandbox"
-}
-
-# -----------------------------------------------------------------------------
 # n8n Service Integration
 # -----------------------------------------------------------------------------
 
