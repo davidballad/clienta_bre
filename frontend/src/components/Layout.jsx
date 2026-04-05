@@ -100,19 +100,27 @@ export default function Layout() {
           <LogOut className="h-5 w-5 shrink-0" />
           {t('common.signOut')}
         </button>
-        <a
-          href="https://aws.amazon.com/what-is-cloud-computing"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 flex items-center justify-center px-3 py-2 text-gray-400 hover:text-gray-500"
-          aria-label="Powered by AWS Cloud Computing"
-        >
-          <img
-            src="https://d0.awsstatic.com/logos/powered-by-aws.png"
-            alt="Powered by AWS Cloud Computing"
-            className="h-6"
-          />
-        </a>
+        <div className="mt-4 flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2 group cursor-default">
+            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-gray-400">Powered by</span>
+            <div className="flex items-center gap-1.5 transition-opacity group-hover:opacity-100">
+              <img src="/logo.png" alt="Clienta AI" className="h-[18px] w-auto brightness-90 contrast-125" />
+            </div>
+          </div>
+          <a
+            href="https://aws.amazon.com/what-is-cloud-computing"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="opacity-40 hover:opacity-100 transition-opacity"
+            aria-label="Powered by AWS Cloud Computing"
+          >
+            <img
+              src="https://d0.awsstatic.com/logos/powered-by-aws.png"
+              alt="Powered by AWS Cloud Computing"
+              className="h-5"
+            />
+          </a>
+        </div>
       </div>
     </div>
   );

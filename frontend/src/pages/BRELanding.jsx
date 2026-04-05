@@ -283,9 +283,17 @@ export default function BRELanding() {
             <WhatsAppGlyph className="h-5 w-5 opacity-70" />
             <span>API Oficial de Meta</span>
           </div>
-          <a href="https://aws.amazon.com/what-is-cloud-computing" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition-opacity">
-            <img src="https://d0.awsstatic.com/logos/powered-by-aws.png" alt="Powered by AWS" className="h-7 w-auto" loading="lazy" />
-          </a>
+          <div className="flex items-center gap-5 border-l border-gray-100 pl-8">
+            <div className="flex items-center gap-2 group cursor-default pr-5 border-r border-gray-100">
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-gray-400">Powered by</span>
+              <div className="flex items-center gap-2 transition-opacity group-hover:opacity-100">
+                <img src="/logo.png" alt="Clienta AI" className="h-5 w-auto brightness-90 contrast-125" />
+              </div>
+            </div>
+            <a href="https://aws.amazon.com/what-is-cloud-computing" target="_blank" rel="noopener noreferrer" className="opacity-40 hover:opacity-100 transition-opacity">
+              <img src="https://d0.awsstatic.com/logos/powered-by-aws.png" alt="Powered by AWS" className="h-6 w-auto" loading="lazy" />
+            </a>
+          </div>
         </div>
       </section>
 
