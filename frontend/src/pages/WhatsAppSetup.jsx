@@ -142,8 +142,9 @@ export default function WhatsAppSetup() {
             try {
               await patchTenantConfig({ support_phone: supportPhone.trim() });
               setSupportPhoneSuccess(t('whatsapp.handoffSuccess'));
-            } catch {
-              /* ignore */
+              setError('');
+            } catch (err) {
+              setError(err.message || 'Error al guardar el telefono de soporte');
             } finally {
               setSupportPhoneSaving(false);
             }

@@ -432,6 +432,16 @@ def _seed_products(tenant_id: str, business_type: str) -> None:
 
 
 @require_auth
+def _handle_get_config(event: dict[str, Any]) -> dict[str, Any]:
+    return get_tenant_config(event["tenant_id"], event)
+
+
+@require_auth
+def _handle_patch_config(event: dict[str, Any]) -> dict[str, Any]:
+    return patch_config(event["tenant_id"], event)
+
+
+@require_auth
 def _handle_complete_setup(event: dict[str, Any]) -> dict[str, Any]:
     """Auth-required wrapper for complete_setup."""
     tenant_id = event.get("tenant_id")
@@ -473,8 +483,27 @@ def complete_setup(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
     sk = build_sk("TENANT", tenant_id)
 
     tenant = get_item(pk, sk)
+    user_info = event.get("user_info") or {}
+
     if not tenant:
-        return error("Tenant not found", 404)
+        # Auto-create skeleton tenant if it exists in Cognito but not in our DB
+        now = now_iso()
+        tenant = {
+            "pk": pk,
+            "sk": sk,
+            "entity_type": "TENANT",
+            "id": tenant_id,
+            "business_name": "New Business", # Placeholder
+            "business_type": "real_estate",
+            "owner_email": user_info.get("email") or "unknown@example.com",
+            "plan": "free",
+            "created_at": now,
+            "updated_at": now,
+        }
+        try:
+            put_item(tenant)
+        except DynamoDBError as e:
+            return server_error(f"Failed to create tenant: {e}")
 
     updates: dict[str, Any] = {}
     for field in TENANT_CONFIG_FIELDS:
@@ -536,8 +565,28 @@ def patch_config(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
     pk = build_pk(tenant_id)
     sk = build_sk("TENANT", tenant_id)
 
-    if not get_item(pk, sk):
-        return error("Tenant not found", 404)
+    tenant = get_item(pk, sk)
+    user_info = event.get("user_info") or {}
+
+    if not tenant:
+        # Create skeleton if missing
+        now = now_iso()
+        tenant = {
+            "pk": pk,
+            "sk": sk,
+            "entity_type": "TENANT",
+            "id": tenant_id,
+            "business_name": "New Business",
+            "business_type": "real_estate",
+            "owner_email": user_info.get("email") or "unknown@example.com",
+            "plan": "free",
+            "created_at": now,
+            "updated_at": now,
+        }
+        try:
+            put_item(tenant)
+        except DynamoDBError as e:
+            return server_error(f"Failed to create tenant: {e}")
 
     updates: dict[str, Any] = {}
     for field in TENANT_CONFIG_FIELDS:
@@ -697,15 +746,9 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         return _handle_complete_setup(event)
 
     if method == "GET" and ("/onboarding/config" in path):
-        tenant_id = extract_tenant_id(event)
-        if not tenant_id:
-            return error("Unauthorized", 401)
-        return get_tenant_config(tenant_id, event)
+        return _handle_get_config(event)
 
     if method == "PATCH" and ("/onboarding/config" in path):
-        tenant_id = extract_tenant_id(event)
-        if not tenant_id:
-            return error("Unauthorized", 401)
-        return patch_config(tenant_id, event)
+        return _handle_patch_config(event)
 
     return error("Not found", 404)

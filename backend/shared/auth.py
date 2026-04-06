@@ -98,7 +98,9 @@ def _get_claims_from_event(event: dict[str, Any]) -> dict[str, Any] | None:
 def _extract_jwt_tenant_id(event: dict[str, Any]) -> str | None:
     """Extract tenant_id from Cognito JWT claims (authorizer or Bearer token)."""
     claims = _get_claims_from_event(event)
-    return claims.get("custom:tenant_id") if claims else None
+    if not claims:
+        return None
+    return claims.get("custom:tenant_id") or claims.get("tenant_id")
 
 
 def validate_service_key(event: dict[str, Any]) -> bool:

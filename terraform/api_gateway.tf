@@ -201,10 +201,20 @@ resource "aws_apigatewayv2_route" "onboarding_setup" {
   target             = "integrations/${aws_apigatewayv2_integration.onboarding.id}"
 }
 
-resource "aws_apigatewayv2_route" "onboarding_config" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "GET /onboarding/config"
-  target    = "integrations/${aws_apigatewayv2_integration.onboarding.id}"
+resource "aws_apigatewayv2_route" "onboarding_config_get" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /onboarding/config"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.onboarding.id}"
+}
+
+resource "aws_apigatewayv2_route" "onboarding_config_patch" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PATCH /onboarding/config"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.onboarding.id}"
 }
 
 resource "aws_apigatewayv2_route" "onboarding_resolve_phone" {
