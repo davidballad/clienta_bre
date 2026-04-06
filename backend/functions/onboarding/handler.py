@@ -21,6 +21,7 @@ from shared.response import created, error, server_error, success
 from shared.utils import build_pk, build_sk, generate_id, now_iso, parse_body
 
 PHONE_NUMBER_ID_PK = "PHONE_NUMBER_ID"
+CATALOG_SLUG_PK = "CATALOG_SLUG"
 S3_TENANT_IDS_KEY = "tenant-registry/tenant-ids.json"
 
 _ses_client = None
@@ -457,6 +458,7 @@ TENANT_CONFIG_FIELDS = (
     "bank_name", "person_name", "account_type", "account_id", "identification_number",
     "follow_up_sequences", "tax_rate",
     "support_phone",
+    "catalog_slug",
 )
 
 
@@ -465,6 +467,15 @@ def _upsert_phone_number_id_mapping(meta_phone_number_id: str, tenant_id: str) -
     put_item({
         "pk": PHONE_NUMBER_ID_PK,
         "sk": meta_phone_number_id,
+        "tenant_id": tenant_id,
+    })
+
+
+def _upsert_catalog_slug_mapping(slug: str, tenant_id: str) -> None:
+    """Create or update the CATALOG_SLUG -> tenant_id mapping in DynamoDB."""
+    put_item({
+        "pk": CATALOG_SLUG_PK,
+        "sk": slug,
         "tenant_id": tenant_id,
     })
 
@@ -525,6 +536,12 @@ def complete_setup(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
             _upsert_phone_number_id_mapping(updates["meta_phone_number_id"], tenant_id)
         except DynamoDBError:
             pass  # Non-fatal; mapping can be retried
+
+    if updates.get("catalog_slug"):
+        try:
+            _upsert_catalog_slug_mapping(updates["catalog_slug"], tenant_id)
+        except DynamoDBError:
+            pass
 
     # Seed sample products based on business_type
     business_type = tenant.get("business_type") or "other"
@@ -608,6 +625,12 @@ def patch_config(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
     if updates.get("meta_phone_number_id"):
         try:
             _upsert_phone_number_id_mapping(updates["meta_phone_number_id"], tenant_id)
+        except DynamoDBError:
+            pass
+
+    if updates.get("catalog_slug"):
+        try:
+            _upsert_catalog_slug_mapping(updates["catalog_slug"], tenant_id)
         except DynamoDBError:
             pass
 
@@ -704,18 +727,27 @@ def get_service_tenant_context(event: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def get_public_meta(event: dict[str, Any]) -> dict[str, Any]:
-    """GET /onboarding/meta?tenant_id= — return public tenant info (name, phone)."""
+    """GET /onboarding/meta?tenant_id= or ?slug= — return public tenant info (name, phone)."""
     params = event.get("queryStringParameters") or {}
     tenant_id = (params.get("tenant_id") or "").strip()
+    slug = (params.get("slug") or "").strip()
+
+    if not tenant_id and slug:
+        mapping = get_item(pk=CATALOG_SLUG_PK, sk=slug)
+        if not mapping:
+            return error("Catalog not found", 404)
+        tenant_id = mapping["tenant_id"]
+
     if not tenant_id:
-        return error("tenant_id required", 400)
+        return error("tenant_id or slug required", 400)
+
     try:
         config = _load_tenant_config(tenant_id)
     except Exception:
         return error("Tenant not found", 404)
     if not config:
         return error("Tenant not found", 404)
-    
+
     return success(body={
         "id": tenant_id,
         "business_name": config.get("business_name"),

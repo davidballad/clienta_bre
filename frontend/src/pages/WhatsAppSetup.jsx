@@ -20,6 +20,9 @@ export default function WhatsAppSetup() {
   const [supportPhone, setSupportPhone] = useState('');
   const [supportPhoneSaving, setSupportPhoneSaving] = useState(false);
   const [supportPhoneSuccess, setSupportPhoneSuccess] = useState('');
+  const [catalogSlug, setCatalogSlug] = useState('');
+  const [slugSaving, setSlugSaving] = useState(false);
+  const [slugSuccess, setSlugSuccess] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -50,6 +53,7 @@ export default function WhatsAppSetup() {
       setAccountId(config.account_id || '');
       setIdentificationNumber(config.identification_number || '');
       setSupportPhone(config.support_phone || '');
+      setCatalogSlug(config.catalog_slug || '');
     }
   }, [config]);
 
@@ -162,14 +166,54 @@ export default function WhatsAppSetup() {
           <p className="mb-3 text-xs text-gray-500">
             Comparte este link en Instagram, Facebook o WhatsApp. Tus clientes podrán ver tus propiedades y contactarte directamente.
           </p>
+
+          {/* Slug input */}
+          <div className="mb-3">
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Nombre del catálogo (URL amigable)
+            </label>
+            <input
+              type="text"
+              value={catalogSlug}
+              onChange={e => setCatalogSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))}
+              placeholder="Ej: remax-quito"
+              className="input-field w-full font-mono text-sm"
+              maxLength={50}
+            />
+            <p className="mt-1 text-xs text-gray-400">Solo letras minúsculas, números y guiones. Sin espacios.</p>
+          </div>
+
+          {slugSuccess && <div className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-700">{slugSuccess}</div>}
+
+          <button
+            type="button"
+            disabled={slugSaving || !catalogSlug}
+            onClick={async () => {
+              setSlugSaving(true);
+              setSlugSuccess('');
+              try {
+                await patchTenantConfig({ catalog_slug: catalogSlug });
+                setSlugSuccess('¡URL actualizada correctamente!');
+              } catch (err) {
+                setError(err.message || 'Error al guardar la URL');
+              } finally {
+                setSlugSaving(false);
+              }
+            }}
+            className="mb-4 btn-primary text-sm disabled:opacity-50"
+          >
+            {slugSaving ? 'Guardando...' : 'Guardar URL'}
+          </button>
+
+          {/* URL preview + copy */}
           <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
             <code className="flex-1 truncate text-xs text-gray-700">
-              {window.location.origin}/propiedades/{config.tenant_id}
+              {window.location.origin}/propiedades/{catalogSlug || config.tenant_id}
             </code>
             <button
               type="button"
               onClick={() => {
-                navigator.clipboard.writeText(`${window.location.origin}/propiedades/${config.tenant_id}`);
+                navigator.clipboard.writeText(`${window.location.origin}/propiedades/${catalogSlug || config.tenant_id}`);
               }}
               className="shrink-0 rounded-md bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm ring-1 ring-gray-200 hover:bg-gray-100"
             >

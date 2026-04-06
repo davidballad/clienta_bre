@@ -14,8 +14,13 @@ import {
   Home
 } from 'lucide-react';
 
+// A ULID is exactly 26 uppercase alphanumeric chars
+const isULID = (s) => /^[0-9A-Z]{26}$/.test(s);
+const metaParam = (param) => isULID(param) ? `tenant_id=${param}` : `slug=${param}`;
+
 export default function PropertyCatalog() {
-  const { tenantId } = useParams();
+  const { tenantId: tenantParam } = useParams();
+  const [resolvedTenantId, setResolvedTenantId] = useState(isULID(tenantParam) ? tenantParam : null);
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -24,11 +29,12 @@ export default function PropertyCatalog() {
   const [meta, setMeta] = useState({ business_name: 'Catálogo Inmobiliario', support_phone: '' });
 
   useEffect(() => {
-    // Fetch Metadata (Name & Phone)
+    // Fetch Metadata (Name & Phone), resolving slug to real tenant_id if needed
     const baseUrl = import.meta.env.VITE_API_URL || '';
-    fetch(`${baseUrl}/onboarding/meta?tenant_id=${tenantId}`)
+    fetch(`${baseUrl}/onboarding/meta?${metaParam(tenantParam)}`)
       .then(res => res.json())
       .then(data => {
+        if (data.id) setResolvedTenantId(data.id);
         if (data.business_name) {
           setMeta({
             business_name: data.business_name,
@@ -37,10 +43,13 @@ export default function PropertyCatalog() {
         }
       })
       .catch(err => console.error("Error loading agency meta:", err));
+  }, [tenantParam]);
 
+  useEffect(() => {
+    if (!resolvedTenantId) return;
     let cancelled = false;
     setLoading(true);
-    fetchPublicProperties(tenantId, { 
+    fetchPublicProperties(resolvedTenantId, {
       search: search.trim() || undefined,
       transactionType: transactionType === 'all' ? undefined : transactionType
     })
@@ -57,7 +66,7 @@ export default function PropertyCatalog() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [tenantId, search, transactionType]);
+  }, [resolvedTenantId, search, transactionType]);
 
   const stats = {
     total: properties.length,

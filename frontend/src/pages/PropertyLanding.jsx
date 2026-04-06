@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchPublicProperties } from '../api/properties';
+
+const isULID = (s) => /^[0-9A-Z]{26}$/.test(s);
+const metaParam = (param) => isULID(param) ? `tenant_id=${param}` : `slug=${param}`;
 import {
   Building2,
   MapPin,
@@ -15,7 +18,8 @@ import {
 } from 'lucide-react';
 
 export default function PropertyLanding() {
-  const { tenantId, propertyId } = useParams();
+  const { tenantId: tenantParam, propertyId } = useParams();
+  const [resolvedTenantId, setResolvedTenantId] = useState(isULID(tenantParam) ? tenantParam : null);
   const [property, setProperty] = useState(null);
   const [meta, setMeta] = useState({ business_name: 'Catálogo Inmobiliario', support_phone: '' });
   const [loading, setLoading] = useState(true);
@@ -23,9 +27,10 @@ export default function PropertyLanding() {
 
   useEffect(() => {
     const baseUrl = import.meta.env.VITE_API_URL || '';
-    fetch(`${baseUrl}/onboarding/meta?tenant_id=${tenantId}`)
+    fetch(`${baseUrl}/onboarding/meta?${metaParam(tenantParam)}`)
       .then(res => res.json())
       .then(data => {
+        if (data.id) setResolvedTenantId(data.id);
         if (data.business_name) {
           setMeta({
             business_name: data.business_name,
@@ -34,8 +39,11 @@ export default function PropertyLanding() {
         }
       })
       .catch(() => {});
+  }, [tenantParam]);
 
-    fetchPublicProperties(tenantId, { limit: 200 })
+  useEffect(() => {
+    if (!resolvedTenantId) return;
+    fetchPublicProperties(resolvedTenantId, { limit: 200 })
       .then(data => {
         const found = (data.properties || []).find(p => p.id === propertyId);
         if (found) setProperty(found);
@@ -43,7 +51,7 @@ export default function PropertyLanding() {
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
-  }, [tenantId, propertyId]);
+  }, [resolvedTenantId, propertyId]);
 
   const isSale = property?.transaction_type === 'sale';
   const price = Number(property?.price || 0);

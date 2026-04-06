@@ -112,6 +112,7 @@ class Tenant(_BaseModel):
     timezone: str | None = None
     business_hours: dict[str, Any] | None = None
     support_phone: str | None = None
+    catalog_slug: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
 
