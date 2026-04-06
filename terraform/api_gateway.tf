@@ -187,6 +187,12 @@ resource "aws_apigatewayv2_route" "onboarding_tenant" {
   target    = "integrations/${aws_apigatewayv2_integration.onboarding.id}"
 }
 
+resource "aws_apigatewayv2_route" "onboarding_meta" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /onboarding/meta"
+  target    = "integrations/${aws_apigatewayv2_integration.onboarding.id}"
+}
+
 resource "aws_apigatewayv2_route" "contact_landing" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "POST /contact"

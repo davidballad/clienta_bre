@@ -703,10 +703,34 @@ def get_service_tenant_context(event: dict[str, Any]) -> dict[str, Any]:
 # Router
 # ---------------------------------------------------------------------------
 
+def get_public_meta(event: dict[str, Any]) -> dict[str, Any]:
+    """GET /onboarding/meta?tenant_id= — return public tenant info (name, phone)."""
+    params = event.get("queryStringParameters") or {}
+    tenant_id = (params.get("tenant_id") or "").strip()
+    if not tenant_id:
+        return error("tenant_id required", 400)
+    try:
+        config = _load_tenant_config(tenant_id)
+    except Exception:
+        return error("Tenant not found", 404)
+    if not config:
+        return error("Tenant not found", 404)
+    
+    return success(body={
+        "id": tenant_id,
+        "business_name": config.get("business_name"),
+        "support_phone": config.get("support_phone"),
+    })
+
+
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Route onboarding requests."""
     path = _get_path(event)
     method = _get_method(event)
+
+    # No auth: public meta (for property catalog)
+    if method == "GET" and ("/onboarding/meta" in path):
+        return get_public_meta(event)
 
     # No auth: contact form submission (landing page)
     if method == "POST" and ("/contact" in path):

@@ -2,6 +2,25 @@ import { api, getTokenGetter } from './client';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
+/** Fetch properties for a public tenant catalog (unauthenticated). */
+export async function fetchPublicProperties(tenantId, { status, transactionType, city, search, nextToken, limit } = {}) {
+  const params = new URLSearchParams({ tenant_id: tenantId });
+  if (status) params.set('status', status);
+  if (transactionType) params.set('transaction_type', transactionType);
+  if (city) params.set('city', city);
+  if (search) params.set('search', search);
+  if (nextToken) params.set('next_token', nextToken);
+  if (limit) params.set('limit', String(limit));
+  
+  const baseUrl = import.meta.env.VITE_API_URL || '';
+  const res = await fetch(`${baseUrl}/properties?${params.toString()}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || 'Error al cargar propiedades');
+  }
+  return res.json();
+}
+
 /** Fetch properties list with optional filters. */
 export function fetchProperties({ status, transactionType, city, search, nextToken, limit } = {}) {
   const params = new URLSearchParams();

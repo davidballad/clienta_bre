@@ -903,15 +903,54 @@ def sync_property_vectors(tenant_id: str, event: dict[str, Any]) -> dict[str, An
 # ── Lambda Handler ──────────────────────────────────────────────────────
 
 
-@require_auth
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Route requests to the appropriate handler."""
     try:
-        method = event.get("requestContext", {}).get("http", {}).get("method", "")
+        from shared.auth import extract_tenant_id, extract_user_info
+        
+        # Log event structure for debugging v2.0 vs v1.0
+        print(f"[DEBUG] Full Event Keys: {list(event.keys())}")
+        if "requestContext" in event:
+            print(f"[DEBUG] RequestContext: {event['requestContext'].get('http', event['requestContext'])}")
+        
+        method = event.get("requestContext", {}).get("http", {}).get("method", "") or event.get("httpMethod", "")
         path = event.get("path", "") or event.get("rawPath", "")
         path_params = event.get("pathParameters") or {}
-        property_id = path_params.get("id")
-        tenant_id = event.get("tenant_id", "")
+        query_params = event.get("queryStringParameters") or {}
+        
+        # 1. More aggressive tenant_id extraction
+        # Try JWT/Service Key first
+        tenant_id = extract_tenant_id(event)
+        
+        # Fallback to Query Params (order: tenant_id, tenantId)
+        if not tenant_id:
+            tenant_id = query_params.get("tenant_id") or query_params.get("tenantId")
+            
+        # Fallback to Headers (sometimes useful for debugging)
+        if not tenant_id:
+            headers = event.get("headers") or {}
+            tenant_id = headers.get("x-tenant-id") or headers.get("X-Tenant-Id")
+            
+        print(f"[DEBUG] Final Extracted tenant_id: '{tenant_id}' (Method: {method}, Path: {path})")
+
+        if not tenant_id:
+            return error("Missing or invalid tenant_id", 401)
+            
+        # 2. Extract context and property info
+        property_id = (event.get("pathParameters") or {}).get("id")
+        is_authenticated = extract_tenant_id(event) is not None
+        
+        # Inject for downstream handlers
+        event["tenant_id"] = tenant_id
+        if is_authenticated:
+            event["user_info"] = extract_user_info(event)
+
+        # 3. Protect sensitive routes (Must be authenticated)
+        is_admin_route = method != "GET" or path.endswith("/stats") or path.endswith("/template")
+        is_ai_route = any(p in path for p in ["/extract-flyer", "/process-doc", "/query", "/score-lead", "/sync-vectors"])
+        
+        if (is_admin_route or is_ai_route) and not is_authenticated:
+            return error("Authentication required for this operation", 401)
 
         # CSV template
         if method == "GET" and path.endswith("/properties/import/template"):

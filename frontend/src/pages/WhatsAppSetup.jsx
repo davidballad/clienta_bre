@@ -164,12 +164,12 @@ export default function WhatsAppSetup() {
           </p>
           <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
             <code className="flex-1 truncate text-xs text-gray-700">
-              https://www.clientaai.com/properties/{config.tenant_id}
+              {window.location.origin}/propiedades/{config.tenant_id}
             </code>
             <button
               type="button"
               onClick={() => {
-                navigator.clipboard.writeText(`https://www.clientaai.com/properties/${config.tenant_id}`);
+                navigator.clipboard.writeText(`${window.location.origin}/propiedades/${config.tenant_id}`);
               }}
               className="shrink-0 rounded-md bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm ring-1 ring-gray-200 hover:bg-gray-100"
             >

@@ -16,6 +16,7 @@ import BRDashboard from './pages/BRDashboard';
 import Analytics from './pages/Analytics';
 import PropertyForm from './pages/PropertyForm';
 import PropertyList from './pages/PropertyList';
+import PropertyCatalog from './pages/PropertyCatalog';
 
 export default function App() {
   const { token } = useAuth();
@@ -39,6 +40,8 @@ export default function App() {
       <Route path="/" element={<BRELanding />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/propiedades/:tenantId" element={<PropertyCatalog />} />
+      <Route path="/properties/:tenantId" element={<PropertyCatalog />} />
 
       {/* Legacy /app Redirect to /br */}
       <Route path="/app/*" element={<Navigate to="/br" replace />} />
