@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Building2,
@@ -21,9 +21,13 @@ import {
   Pencil,
   Trash2,
   RefreshCw,
+  Share2,
+  Link2,
 } from 'lucide-react';
 import { useProperties, useDeleteProperty, useImportProperties, useExtractFlyer, useSyncVectors } from '../hooks/useProperties';
 import { downloadPropertyTemplate } from '../api/properties';
+import { getTenantConfig } from '../api/onboarding';
+import { useAuth } from '../context/AuthContext';
 
 /* ── Status / Type Badges ──────────────────────────────────────────── */
 
@@ -53,10 +57,24 @@ function TxBadge({ type }) {
 
 /* ── Property Card ─────────────────────────────────────────────────── */
 
-function PropertyCard({ property, onDelete }) {
+function PropertyCard({ property, onDelete, supportPhone, tenantId }) {
   const navigate = useNavigate();
   const isSale = property.transaction_type === 'sale';
   const price = Number(property.price) || 0;
+  const [copied, setCopied] = useState(null); // 'wa' | 'link' | null
+
+  const ref = property.reference_code || property.id;
+  const txLabel = isSale ? 'Venta' : 'Renta';
+  const waText = `Hola! 👋 Estoy interesado en la propiedad: "${property.name}" (${txLabel}) — $${price.toLocaleString()}. Ref: ${ref}. ¿Me pueden dar más información?`;
+  const waUrl = supportPhone ? `https://wa.me/${supportPhone}?text=${encodeURIComponent(waText)}` : null;
+  const pageUrl = tenantId ? `${window.location.origin}/propiedades/${tenantId}/${property.id}` : null;
+
+  const copy = (text, type) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(type);
+      setTimeout(() => setCopied(null), 1500);
+    });
+  };
 
   return (
     <div className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-lg hover:border-emerald-200">
@@ -87,6 +105,24 @@ function PropertyCard({ property, onDelete }) {
           >
             <Trash2 className="h-4 w-4" />
           </button>
+          {waUrl && (
+            <button
+              onClick={() => copy(waUrl, 'wa')}
+              className={`rounded-lg p-2 shadow-sm transition ${copied === 'wa' ? 'bg-emerald-500 text-white' : 'bg-white/90 text-emerald-600 hover:bg-white'}`}
+              title="Copiar enlace WhatsApp (para Meta Ads)"
+            >
+              {copied === 'wa' ? <CheckCircle className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+            </button>
+          )}
+          {pageUrl && (
+            <button
+              onClick={() => copy(pageUrl, 'link')}
+              className={`rounded-lg p-2 shadow-sm transition ${copied === 'link' ? 'bg-blue-500 text-white' : 'bg-white/90 text-blue-600 hover:bg-white'}`}
+              title="Copiar enlace de página (para publicaciones)"
+            >
+              {copied === 'link' ? <CheckCircle className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
+            </button>
+          )}
         </div>
       </div>
       {/* Info */}
@@ -223,12 +259,20 @@ function CSVImportModal({ open, onClose }) {
 
 export default function PropertyList() {
   const navigate = useNavigate();
+  const { tenantId } = useAuth();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [txFilter, setTxFilter] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [supportPhone, setSupportPhone] = useState('');
+
+  useEffect(() => {
+    getTenantConfig().then(cfg => {
+      if (cfg?.support_phone) setSupportPhone(cfg.support_phone.replace(/[^\d+]/g, ''));
+    }).catch(() => {});
+  }, []);
 
   const deleteMutation = useDeleteProperty();
   const syncMutation = useSyncVectors();
@@ -423,7 +467,7 @@ export default function PropertyList() {
       {!isLoading && properties.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {properties.map(prop => (
-            <PropertyCard key={prop.id} property={prop} onDelete={setDeleteTarget} />
+            <PropertyCard key={prop.id} property={prop} onDelete={setDeleteTarget} supportPhone={supportPhone} tenantId={tenantId} />
           ))}
         </div>
       )}

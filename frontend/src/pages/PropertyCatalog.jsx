@@ -239,7 +239,7 @@ export default function PropertyCatalog() {
 
                   <div className="mt-6 flex flex-col gap-2 pt-2">
                     <a
-                      href={`https://wa.me/${meta.support_phone || '593997848591'}?text=${encodeURIComponent(`Hola! 👋 Estoy interesado en la propiedad: "${prop.name}" (Ref: ${prop.id}). ¿Podrían darme más información?`)}`}
+                      href={`https://wa.me/${meta.support_phone || '593997848591'}?text=${encodeURIComponent(`Hola! 👋 Estoy interesado en la propiedad: "${prop.name}" (Ref: ${prop.reference_code || prop.id}). ¿Podrían darme más información?`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center justify-center gap-2 rounded-2xl bg-brand-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-brand-600/25 transition-all hover:bg-brand-500 hover:scale-[1.02] active:scale-95"
