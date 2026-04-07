@@ -38,9 +38,8 @@
     "signupFailed": "Signup failed",
     "alreadyHaveAccount": "Already have an account?",
     "businessTypes": {
-      "restaurant": "Restaurant",
       "real_estate": "Real Estate",
-      "other": "Other"
+      "construction": "Construction"
     }
   },
   "layout": {

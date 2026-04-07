@@ -38,9 +38,8 @@
     "signupFailed": "Error al crear la cuenta",
     "alreadyHaveAccount": "¿Ya tienes cuenta?",
     "businessTypes": {
-      "restaurant": "Restaurante",
-      "real_estate": "Bienes Raíces",
-      "other": "Otro"
+      "real_estate": "Inmobiliaria",
+      "construction": "Constructora"
     }
   },
   "layout": {

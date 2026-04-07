@@ -233,7 +233,7 @@ SEED_PRODUCTS: dict[str, list[dict[str, Any]]] = {
 }
 
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-VALID_BUSINESS_TYPES = frozenset({"restaurant", "retail", "bar", "real_estate", "other"})
+VALID_BUSINESS_TYPES = frozenset({"real_estate", "construction", "other"})
 
 
 def _get_path(event: dict[str, Any]) -> str:

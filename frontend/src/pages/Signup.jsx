@@ -5,10 +5,8 @@ import { createTenant } from '../api/onboarding';
 import { useAuth } from '../context/AuthContext';
 
 const BUSINESS_TYPE_KEYS = [
-  { value: 'restaurant', labelKey: 'signup.businessTypes.restaurant' },
-  { value: 'retail', labelKey: 'signup.businessTypes.retail' },
-  { value: 'bar', labelKey: 'signup.businessTypes.bar' },
-  { value: 'other', labelKey: 'signup.businessTypes.other' },
+  { value: 'real_estate', labelKey: 'signup.businessTypes.real_estate' },
+  { value: 'construction', labelKey: 'signup.businessTypes.construction' },
 ];
 
 export default function Signup() {
@@ -17,7 +15,7 @@ export default function Signup() {
   const { signIn } = useAuth();
   const [form, setForm] = useState({
     business_name: '',
-    business_type: 'restaurant',
+    business_type: 'real_estate',
     owner_email: '',
     owner_password: '',
     meta_phone_number_id: '',

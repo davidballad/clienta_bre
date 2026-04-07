@@ -45,6 +45,7 @@ terraform/config/prod/*.tfvars
 # OS
 .DS_Store
 Thumbs.db
+my-video
 
 # Environment
 .env

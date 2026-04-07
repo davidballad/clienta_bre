@@ -126,7 +126,7 @@ const FEATURES = [
   },
   {
     icon: FileText,
-    title: 'RAG Documental',
+    title: 'Documentación',
     desc: 'Adjunta escrituras, planos y certificados. El bot responde preguntas técnicas sobre cada inmueble con precisión legal.',
   },
   {
@@ -148,7 +148,7 @@ const FEATURES = [
 
 const STEPS = [
   { num: '01', title: 'Sube tus Propiedades', desc: 'CSV, formulario o foto de flyer. La IA hace el resto.' },
-  { num: '02', title: 'Conecta WhatsApp', desc: 'Configura tu número en minutos. Sin código.' },
+  { num: '02', title: 'Conecta WhatsApp', desc: 'Conexión oficial con WhatsApp API. Sin servidores ni programación.' },
   { num: '03', title: 'Recibe Leads Calificados', desc: 'El bot filtra, califica y te envía solo los mejores.' },
 ];
 
