@@ -370,7 +370,7 @@ def process_document_upload(
     Returns:
         Dict with extraction result and vector key.
     """
-    from .documents import upload_document_text as store_doc_vector
+    from documents import upload_document_text as store_doc_vector
 
     text = extract_document_from_s3(s3_key, bucket)
 

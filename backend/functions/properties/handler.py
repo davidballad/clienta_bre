@@ -53,28 +53,28 @@ _scoring_mod = None
 def _get_documents():
     global _documents_mod
     if _documents_mod is None:
-        from . import documents as _documents_mod
+        import documents as _documents_mod
     return _documents_mod
 
 
 def _get_vision():
     global _vision_mod
     if _vision_mod is None:
-        from . import vision as _vision_mod
+        import vision as _vision_mod
     return _vision_mod
 
 
 def _get_query():
     global _query_mod
     if _query_mod is None:
-        from . import query as _query_mod
+        import query as _query_mod
     return _query_mod
 
 
 def _get_scoring():
     global _scoring_mod
     if _scoring_mod is None:
-        from . import scoring as _scoring_mod
+        import scoring as _scoring_mod
     return _scoring_mod
 
 

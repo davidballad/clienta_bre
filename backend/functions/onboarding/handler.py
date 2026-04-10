@@ -464,11 +464,16 @@ TENANT_CONFIG_FIELDS = (
 
 def _upsert_phone_number_id_mapping(meta_phone_number_id: str, tenant_id: str) -> None:
     """Create or update the PHONE_NUMBER_ID -> tenant_id mapping in DynamoDB."""
-    put_item({
-        "pk": PHONE_NUMBER_ID_PK,
-        "sk": meta_phone_number_id,
-        "tenant_id": tenant_id,
-    })
+    print(f"Upserting mapping: {PHONE_NUMBER_ID_PK} / {meta_phone_number_id} -> {tenant_id}")
+    try:
+        put_item({
+            "pk": PHONE_NUMBER_ID_PK,
+            "sk": meta_phone_number_id,
+            "tenant_id": tenant_id,
+        })
+    except Exception as e:
+        print(f"CRITICAL: Failed to upsert phone_number_id mapping: {e}")
+        raise e
 
 
 def _upsert_catalog_slug_mapping(slug: str, tenant_id: str) -> None:
@@ -534,8 +539,8 @@ def complete_setup(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
     if updates.get("meta_phone_number_id"):
         try:
             _upsert_phone_number_id_mapping(updates["meta_phone_number_id"], tenant_id)
-        except DynamoDBError:
-            pass  # Non-fatal; mapping can be retried
+        except Exception as e:
+            print(f"Non-fatal but serious: Failed to map phone_number_id {updates['meta_phone_number_id']}: {e}")
 
     if updates.get("catalog_slug"):
         try:
@@ -625,8 +630,8 @@ def patch_config(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
     if updates.get("meta_phone_number_id"):
         try:
             _upsert_phone_number_id_mapping(updates["meta_phone_number_id"], tenant_id)
-        except DynamoDBError:
-            pass
+        except Exception as e:
+            print(f"Non-fatal but serious: Failed to map phone_number_id {updates['meta_phone_number_id']} during patch: {e}")
 
     if updates.get("catalog_slug"):
         try:
@@ -673,7 +678,8 @@ def resolve_phone(event: dict[str, Any]) -> dict[str, Any]:
         return server_error(str(e))
 
     if not mapping:
-        return error("No tenant found for this phone_number_id", 404)
+        print(f"Lookup failed for phone_number_id: {phone_number_id}")
+        return error(f"No tenant found for phone_number_id: {phone_number_id}", 404)
 
     resolved_tenant_id = mapping.get("tenant_id")
     if not resolved_tenant_id:
