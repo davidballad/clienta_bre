@@ -19,21 +19,19 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useProperties, usePropertyStats, useSyncVectors } from '../hooks/useProperties';
+import { useContacts } from '../hooks/useContacts';
 
-/* ── Fallback mocks (when API isn't available yet) ─────────────────── */
-
-const MOCK_STATS = {
-  total: 24,
-  by_status: { disponible: 18, reservado: 3, vendido: 2, rentado: 1 },
-  by_type: { sale: 16, rent: 8 },
-};
-
-const MOCK_LEADS = [
-  { name: 'María García', phone: '+593 998 123 456', score: 92, intent: 'buy', property: 'Suite 2BR La Carolina', time: 'Hace 5 min' },
-  { name: 'Carlos Reyes', phone: '+593 997 654 321', score: 78, intent: 'rent', property: 'Oficina Centro Norte', time: 'Hace 20 min' },
-  { name: 'Lucía Montenegro', phone: '+593 996 111 222', score: 65, intent: 'buy', property: 'Casa 3BR Cumbayá', time: 'Hace 1 hora' },
-  { name: 'Andrés Torres', phone: '+593 995 333 444', score: 45, intent: 'buy', property: null, time: 'Hace 3 horas' },
-];
+function formatTime(isoString) {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMinutes = Math.floor((now - date) / 60000);
+  if (diffMinutes < 1) return 'Hace un momento';
+  if (diffMinutes < 60) return `Hace ${diffMinutes} min`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `Hace ${diffHours} horas`;
+  return `Hace ${Math.floor(diffHours / 24)} días`;
+}
 
 /* ── Sub-components ────────────────────────────────────────────────── */
 
@@ -136,11 +134,21 @@ function PropertyCard({ property }) {
 export default function BRDashboard() {
   const { data: statsData, isLoading: statsLoading } = usePropertyStats();
   const { data: propsData, isLoading: propsLoading } = useProperties({ limit: 6 });
+  const { data: contactsData, isLoading: contactsLoading } = useContacts({ limit: 10 });
   const syncMutation = useSyncVectors();
 
-  const stats = statsData || MOCK_STATS;
-  const leads = MOCK_LEADS; // TODO: connect leads API when ready
+  const stats = statsData || { total: 0, by_status: {}, by_type: {} };
   const properties = propsData?.properties || [];
+  
+  const leads = (contactsData?.contacts || []).map(c => ({
+    id: c.contact_id,
+    name: c.name || 'Sin nombre',
+    phone: c.phone || '',
+    score: c.lead_score || 0,
+    intent: c.lead_intent || 'buy',
+    property: c.interested_property_id ? `ID: ${c.interested_property_id.substring(0, 8)}` : null,
+    time: formatTime(c.last_activity_ts || c.created_ts)
+  }));
 
   return (
     <div className="space-y-6">
@@ -172,15 +180,15 @@ export default function BRDashboard() {
         <StatCard
           icon={CheckCircle2}
           label="Disponibles"
-          value={statsLoading ? '...' : stats.by_status.disponible}
+          value={statsLoading ? '...' : (stats.by_status?.disponible || 0)}
           color="bg-green-100 text-green-700"
         />
         <StatCard
           icon={Home}
           label="Venta"
-          value={statsLoading ? '...' : stats.by_type.sale}
+          value={statsLoading ? '...' : (stats.by_type?.sale || 0)}
           color="bg-blue-100 text-blue-700"
-          subtext={`${stats.by_type.rent} en renta`}
+          subtext={`${stats.by_type?.rent || 0} en renta`}
         />
         <StatCard
           icon={TrendingUp}
