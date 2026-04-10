@@ -1,0 +1,232 @@
+{
+  "name": "Clienta BR — Calendar Scheduler",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "webhookId": "REPLACE_WITH_YOUR_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "tableName": "TenantConfig",
+        "fieldsToMatch": "WABA_ID",
+        "fieldsToReturn": ["AgencyName", "CalendarID", "AgentInstructions"],
+        "options": {}
+      },
+      "id": "lookup_tenant",
+      "name": "Lookup Tenant Config",
+      "type": "n8n-nodes-base.n8nDataTable",
+      "typeVersion": 1,
+      "position": [220, 0],
+      "notes": "Reads CalendarID and scheduling instructions from the internal TenantConfig Data Table. The WABA_ID comes from the incoming message context."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "name": "calendarId", "value": "={{ $json.CalendarID }}", "type": "string" },
+            { "name": "agencyName", "value": "={{ $json.AgencyName }}", "type": "string" },
+            { "name": "agentInstructions", "value": "={{ $json.AgentInstructions }}", "type": "string" },
+            { "name": "userPhone", "value": "={{ $('When chat message received').item.json.from }}", "type": "string" },
+            { "name": "tenantId", "value": "={{ $('When chat message received').item.json.tenant_id }}", "type": "string" }
+          ]
+        }
+      },
+      "id": "set_context",
+      "name": "Set Tenant Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('When chat message received').item.json.chatInput }}",
+        "options": {
+          "systemMessage": "=Eres el asistente de agenda de {{ $('Set Tenant Context').item.json.agencyName }}.\n\nANTES de crear cualquier cita, siempre verificas si el usuario ya tiene una cita pendiente usando la herramienta 'Verificar Cita Existente'.\n\n- Si ya tiene una cita confirmada: pregunta si quiere mantenerla o reagendarla. Si quiere reagendar, elimina el evento de Google Calendar (usa la herramienta 'Eliminar Evento GCal') y crea uno nuevo.\n- Si no tiene cita: solicita: nombre completo, **correo electrónico** (obligatorio), fecha preferida, hora preferida.\n- Al tener todos los datos: crea el evento en Google Calendar (herramienta 'Crear Evento GCal') y guarda la cita en el sistema (herramienta 'Guardar Cita').\n- Confirma siempre con un resumen en WhatsApp: fecha, hora y dirección de confirmación al email.\n\nReglas de negocio de {{ $('Set Tenant Context').item.json.agencyName }}:\n{{ $('Set Tenant Context').item.json.agentInstructions }}\n\nIdioma: español. Sé cordial y conciso."
+        }
+      },
+      "id": "ai_agent",
+      "name": "Scheduling Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "url": "=https://YOUR_API_GATEWAY_URL/appointments/upcoming",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Service-Key", "value": "={{ $env.SERVICE_API_KEY }}" },
+            { "name": "X-Tenant-Id", "value": "={{ $('Set Tenant Context').item.json.tenantId }}" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "phone", "value": "={{ $('Set Tenant Context').item.json.userPhone }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tool_check_appt",
+      "name": "Verificar Cita Existente",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [660, 200],
+      "description": "Checks if the WhatsApp user already has an upcoming confirmed appointment. Returns {has_appointment: bool, appointment?: {...}}."
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $('Set Tenant Context').item.json.calendarId }}",
+          "mode": "id"
+        },
+        "title": "=Visita: {{ /*contact_name from agent context*/ }}",
+        "start": "={{ /*ISO date from agent context*/ }}",
+        "end": "={{ /*ISO end date from agent context — start + duration*/ }}",
+        "additionalFields": {
+          "description": "=Cita agendada por Clienta AI\nEmail: {{ /*contact_email*/ }}\nTeléfono: {{ $('Set Tenant Context').item.json.userPhone }}"
+        }
+      },
+      "id": "tool_gcal_create",
+      "name": "Crear Evento GCal",
+      "type": "@n8n/n8n-nodes-langchain.toolGoogleCalendar",
+      "typeVersion": 1,
+      "position": [660, 400],
+      "description": "Creates a Google Calendar event on the tenant-specific calendar. The calendar ID is injected dynamically from the TenantConfig Data Table.",
+      "notes": "IMPORTANT: Credentials must be set to your central Clienta Google OAuth2 account (no-reply@clientaai.com or your OAuth-connected account). Each agency must share their calendar with that account."
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $('Set Tenant Context').item.json.calendarId }}",
+          "mode": "id"
+        },
+        "eventId": "={{ /*google_event_id from existing appointment*/ }}"
+      },
+      "id": "tool_gcal_delete",
+      "name": "Eliminar Evento GCal",
+      "type": "@n8n/n8n-nodes-langchain.toolGoogleCalendar",
+      "typeVersion": 1,
+      "position": [660, 600],
+      "description": "Deletes the old Google Calendar event when rescheduling. The event ID comes from the existing appointment record fetched by Verificar Cita Existente."
+    },
+    {
+      "parameters": {
+        "url": "=https://YOUR_API_GATEWAY_URL/appointments",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Service-Key", "value": "={{ $env.SERVICE_API_KEY }}" },
+            { "name": "X-Tenant-Id", "value": "={{ $('Set Tenant Context').item.json.tenantId }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "contact_phone", "value": "={{ $('Set Tenant Context').item.json.userPhone }}" },
+            { "name": "contact_name", "value": "={{ /*name collected by agent*/ }}" },
+            { "name": "contact_email", "value": "={{ /*email collected by agent — REQUIRED*/ }}" },
+            { "name": "scheduled_at", "value": "={{ /*ISO 8601 UTC datetime chosen*/ }}" },
+            { "name": "google_event_id", "value": "={{ /*event id returned by Crear Evento GCal*/ }}" },
+            { "name": "calendar_id", "value": "={{ $('Set Tenant Context').item.json.calendarId }}" },
+            { "name": "duration_minutes", "value": "60" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tool_save_appt",
+      "name": "Guardar Cita",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [660, 800],
+      "description": "Saves the confirmed appointment to DynamoDB via the Clienta BR API. Must be called AFTER the Google Calendar event is created successfully."
+    },
+    {
+      "parameters": {
+        "url": "=https://YOUR_API_GATEWAY_URL/appointments/{{ /*appointment_id*/ }}",
+        "method": "PATCH",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Service-Key", "value": "={{ $env.SERVICE_API_KEY }}" },
+            { "name": "X-Tenant-Id", "value": "={{ $('Set Tenant Context').item.json.tenantId }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "status", "value": "rescheduled" },
+            { "name": "scheduled_at", "value": "={{ /*new ISO 8601 UTC datetime*/ }}" },
+            { "name": "google_event_id", "value": "={{ /*new GCal event id*/ }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tool_update_appt",
+      "name": "Actualizar Cita",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [660, 1000],
+      "description": "Updates an existing appointment record when rescheduling (status=rescheduled, new scheduled_at, new google_event_id)."
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [[{ "node": "Lookup Tenant Config", "type": "main", "index": 0 }]]
+    },
+    "Lookup Tenant Config": {
+      "main": [[{ "node": "Set Tenant Context", "type": "main", "index": 0 }]]
+    },
+    "Set Tenant Context": {
+      "main": [[{ "node": "Scheduling Agent", "type": "main", "index": 0 }]]
+    },
+    "Verificar Cita Existente": {
+      "ai_tool": [[{ "node": "Scheduling Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "Crear Evento GCal": {
+      "ai_tool": [[{ "node": "Scheduling Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "Eliminar Evento GCal": {
+      "ai_tool": [[{ "node": "Scheduling Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "Guardar Cita": {
+      "ai_tool": [[{ "node": "Scheduling Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "Actualizar Cita": {
+      "ai_tool": [[{ "node": "Scheduling Agent", "type": "ai_tool", "index": 0 }]]
+    }
+  },
+  "_meta": {
+    "templateCredsSetupCompleted": true,
+    "notes": [
+      "Replace YOUR_API_GATEWAY_URL with your actual API Gateway invoke URL from Terraform outputs.",
+      "Set SERVICE_API_KEY as an n8n environment variable (same value as var.service_api_key in Terraform).",
+      "Replace REPLACE_WITH_YOUR_WEBHOOK_ID with the webhook ID from your existing Calendar Scheduler trigger.",
+      "Connect your Google OAuth2 credentials to Crear Evento GCal and Eliminar Evento GCal nodes.",
+      "The agent will fill in contact_name, contact_email, scheduled_at, and google_event_id dynamically from conversation context.",
+      "The TenantConfig Data Table (ID: qW38DPfUMbnVhv3Z) already exists from the previous session — no recreation needed."
+    ]
+  }
+}

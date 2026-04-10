@@ -184,3 +184,33 @@ class ConversationSummary(_BaseModel):
     last_direction: str | None = None
     last_text: str | None = None
     updated_at: str | None = None
+
+
+@dataclass
+class Appointment(_BaseModel):
+    """Scheduled appointment for a real-estate visit or meeting.
+
+    Key design notes:
+    - ``contact_email`` is required before confirming; collected by the AI agent.
+    - ``google_event_id`` is stored so the n8n workflow can update/delete the
+      Google Calendar event on reschedule or cancellation.
+    - ``status``: confirmed | cancelled | rescheduled
+    - ``scheduled_at``: ISO 8601 UTC string, e.g. "2026-04-15T15:00:00Z"
+    """
+
+    tenant_id: str
+    appointment_id: str | None = None
+    contact_phone: str | None = None       # normalized E.164 digits
+    contact_name: str | None = None
+    contact_email: str | None = None       # required; enriches Contact lead board
+    contact_id: str | None = None         # linked Contact record (optional)
+    scheduled_at: str | None = None        # ISO 8601 UTC
+    duration_minutes: int = 60
+    property_id: str | None = None
+    property_name: str | None = None
+    google_event_id: str | None = None    # GCal event ID for future updates/deletes
+    calendar_id: str | None = None        # which GCal calendar was used
+    status: str = "confirmed"             # confirmed | cancelled | rescheduled
+    notes: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None

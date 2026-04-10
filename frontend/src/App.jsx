@@ -18,6 +18,7 @@ import PropertyForm from './pages/PropertyForm';
 import PropertyList from './pages/PropertyList';
 import PropertyCatalog from './pages/PropertyCatalog';
 import PropertyLanding from './pages/PropertyLanding';
+import Appointments from './pages/Appointments';
 
 export default function App() {
   const { token } = useAuth();
@@ -63,6 +64,7 @@ export default function App() {
         <Route path="properties/:id" element={<PropertyForm />} />
         <Route path="leads" element={<LeadsList />} />
         <Route path="leads/:id" element={<LeadProfile />} />
+        <Route path="appointments" element={<Appointments />} />
         <Route path="messages" element={<MessagesInbox />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="settings" element={<WhatsAppSetup />} />

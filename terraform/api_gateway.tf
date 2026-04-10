@@ -84,6 +84,14 @@ resource "aws_apigatewayv2_integration" "properties" {
   payload_format_version = "2.0"
 }
 
+resource "aws_apigatewayv2_integration" "appointments" {
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.services["appointments"].invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
 # -----------------------------------------------------------------------------
 # Routes
 # -----------------------------------------------------------------------------
@@ -333,6 +341,53 @@ resource "aws_apigatewayv2_route" "properties_template" {
   target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
 }
 
+# --- Appointments (Scheduling) ---
+# Upcoming check — called by n8n agent (service key) before starting a booking
+resource "aws_apigatewayv2_route" "appointments_upcoming" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /appointments/upcoming"
+  target    = "integrations/${aws_apigatewayv2_integration.appointments.id}"
+}
+
+# Owner dashboard — JWT required
+resource "aws_apigatewayv2_route" "appointments_list" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /appointments"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.appointments.id}"
+}
+
+# Create — n8n (service key) or owner
+resource "aws_apigatewayv2_route" "appointments_create" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /appointments"
+  target    = "integrations/${aws_apigatewayv2_integration.appointments.id}"
+}
+
+# Single-resource — JWT or service key (n8n reschedule/cancel)
+resource "aws_apigatewayv2_route" "appointments_get" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /appointments/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.appointments.id}"
+}
+
+resource "aws_apigatewayv2_route" "appointments_patch" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "PATCH /appointments/{id}"
+  target    = "integrations/${aws_apigatewayv2_integration.appointments.id}"
+}
+
+resource "aws_apigatewayv2_route" "appointments_delete" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "DELETE /appointments/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.appointments.id}"
+}
+
 # -----------------------------------------------------------------------------
 # Deployment & Stage
 # -----------------------------------------------------------------------------
@@ -387,3 +442,6 @@ resource "aws_lambda_permission" "api_gateway_properties" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
 }
+
+# appointments is part of the services for_each — permission already granted via
+# aws_lambda_permission.api_gateway_services (uses source_arn with wildcard /*/*)

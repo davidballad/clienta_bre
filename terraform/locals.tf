@@ -38,6 +38,10 @@ locals {
       memory_size = 512
       timeout     = 120
     }
+    appointments = {
+      memory_size = 256
+      timeout     = 30
+    }
   }
 
 
