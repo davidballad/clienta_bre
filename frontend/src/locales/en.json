@@ -15,14 +15,18 @@
     "password": "Password",
     "placeholderEmail": "you@business.com",
     "placeholderPassword": "Enter your password",
-    "language": "Language"
+    "language": "Language",
+    "orContinueWith": "or continue with",
+    "signInWithGoogle": "Continue with Google",
+    "signUpWithGoogle": "Sign up with Google"
   },
   "login": {
     "title": "Sign in",
     "tagline": "AI-powered business insights for your business",
     "signInFailed": "Sign in failed",
     "noAccount": "Don't have an account?",
-    "createOne": "Create one"
+    "createOne": "Create one",
+    "forgotPassword": "Forgot password?"
   },
   "signup": {
     "title": "Create your account",
@@ -364,5 +368,25 @@
     "item": "item",
     "items": "items",
     "viewCart": "View cart"
+  },
+  "forgotPassword": {
+    "title": "Reset Password",
+    "requestTagline": "Enter your email and we will send you a verification code.",
+    "confirmTagline": "Enter the code sent to {{email}} and your new password.",
+    "doneTagline": "Password reset!",
+    "doneBody": "You can now sign in with your new password.",
+    "sendCode": "Send code",
+    "sending": "Sending...",
+    "codeLabel": "Verification code",
+    "codePlaceholder": "123456",
+    "newPasswordLabel": "New password",
+    "confirmPasswordLabel": "Confirm password",
+    "confirmPasswordPlaceholder": "Repeat password",
+    "resetPassword": "Reset password",
+    "saving": "Saving...",
+    "backToEmail": "Back to email",
+    "passwordMismatch": "Passwords do not match.",
+    "requestFailed": "Could not send code. Please check your email.",
+    "confirmFailed": "Invalid or expired code. Please try again."
   }
 }

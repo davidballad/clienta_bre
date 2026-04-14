@@ -306,7 +306,7 @@ def create_tenant(event: dict[str, Any]) -> dict[str, Any]:
 
     cognito = boto3.client("cognito-idp")
 
-    # Step 1: Create Cognito user
+    # Step 1: Create Cognito user (atomic: roll back on any failure)
     try:
         cognito.admin_create_user(
             UserPoolId=user_pool_id,
@@ -319,6 +319,13 @@ def create_tenant(event: dict[str, Any]) -> dict[str, Any]:
             ],
             MessageAction="SUPPRESS",
         )
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        if error_code == "UsernameExistsException":
+            return error("A user with this email already exists", 409)
+        return error(f"Failed to create user: {e.response.get('Error', {}).get('Message', str(e))}", 400)
+
+    try:
         cognito.admin_set_user_password(
             UserPoolId=user_pool_id,
             Username=owner_email,
@@ -326,10 +333,13 @@ def create_tenant(event: dict[str, Any]) -> dict[str, Any]:
             Permanent=True,
         )
     except ClientError as e:
-        error_code = e.response.get("Error", {}).get("Code", "")
-        if error_code == "UsernameExistsException":
-            return error("A user with this email already exists", 409)
-        return error(f"Failed to create user: {e.response.get('Error', {}).get('Message', str(e))}", 400)
+        # Password failed (e.g., policy violation) — roll back the user we just created
+        try:
+            cognito.admin_delete_user(UserPoolId=user_pool_id, Username=owner_email)
+        except ClientError:
+            pass  # Best-effort cleanup; log in production
+        msg = e.response.get("Error", {}).get("Message", str(e))
+        return error(f"Password does not meet requirements: {msg}", 400)
 
     # Step 2: Create tenant record in DynamoDB
     pk = build_pk(tenant_id)
@@ -459,6 +469,7 @@ TENANT_CONFIG_FIELDS = (
     "follow_up_sequences", "tax_rate",
     "support_phone",
     "catalog_slug",
+    "logo_url",
 )
 
 
@@ -758,7 +769,65 @@ def get_public_meta(event: dict[str, Any]) -> dict[str, Any]:
         "id": tenant_id,
         "business_name": config.get("business_name"),
         "support_phone": config.get("support_phone"),
+        "logo_url": config.get("logo_url"),
     })
+
+
+def get_logo_upload_url(event: dict[str, Any]) -> dict[str, Any]:
+    """POST /onboarding/logo-upload — generate a presigned S3 URL for logo upload.
+
+    Auth required. Returns { upload_url, logo_url } so the frontend can:
+    1. PUT the file directly to S3 via the presigned URL.
+    2. Call PATCH /onboarding/config with { logo_url } to persist the public URL.
+    """
+    tenant_id = event.get("tenant_id")
+    if not tenant_id:
+        return error("Unauthorized", 401)
+
+    bucket = os.environ.get("DATA_BUCKET")
+    region = os.environ.get("AWS_REGION", "us-east-1")
+    if not bucket:
+        return server_error("DATA_BUCKET not configured")
+
+    try:
+        body = parse_body(event)
+    except (TypeError, ValueError):
+        body = {}
+
+    content_type = (body.get("content_type") or "image/jpeg").strip()
+    # Only allow safe image MIME types
+    allowed_types = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"}
+    if content_type not in allowed_types:
+        content_type = "image/jpeg"
+
+    ext_map = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "image/gif": "gif",
+        "image/svg+xml": "svg",
+    }
+    ext = ext_map.get(content_type, "jpg")
+    key = f"logos/{tenant_id}/logo.{ext}"
+
+    try:
+        s3 = boto3.client("s3", region_name=region)
+        upload_url = s3.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": bucket, "Key": key, "ContentType": content_type},
+            ExpiresIn=300,  # 5 minutes
+        )
+    except Exception as e:
+        return server_error(f"Failed to generate upload URL: {e}")
+
+    logo_url = f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
+    return success(body={"upload_url": upload_url, "logo_url": logo_url})
+
+
+@require_auth
+def _handle_logo_upload(event: dict[str, Any]) -> dict[str, Any]:
+    """Auth wrapper for get_logo_upload_url."""
+    return get_logo_upload_url(event)
 
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
@@ -802,6 +871,10 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     # Service key only: full tenant for n8n (WhatsApp send, Phase 3 nudges)
     if method == "GET" and ("/onboarding/service/tenant" in path):
         return get_service_tenant_context(event)
+
+    # Auth required: logo upload URL
+    if method == "POST" and ("/onboarding/logo-upload" in path):
+        return _handle_logo_upload(event)
 
     # Auth required: setup and config
     if method == "POST" and ("/onboarding/setup" in path):

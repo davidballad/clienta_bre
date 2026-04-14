@@ -6,6 +6,7 @@ import { setTokenGetter } from './api/client';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
 import LeadsList from './pages/LeadsList';
 import LeadProfile from './pages/LeadProfile';
 import MessagesInbox from './pages/MessagesInbox';
@@ -42,6 +43,7 @@ export default function App() {
       <Route path="/" element={<BRELanding />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/propiedades/:tenantId/:propertyId" element={<PropertyLanding />} />
       <Route path="/propiedades/:tenantId" element={<PropertyCatalog />} />
       <Route path="/properties/:tenantId" element={<PropertyCatalog />} />

@@ -15,14 +15,18 @@
     "password": "Contraseña",
     "placeholderEmail": "tu@negocio.com",
     "placeholderPassword": "Ingresa tu contraseña",
-    "language": "Idioma"
+    "language": "Idioma",
+    "orContinueWith": "o continúa con",
+    "signInWithGoogle": "Continuar con Google",
+    "signUpWithGoogle": "Registrarse con Google"
   },
   "login": {
     "title": "Iniciar sesión",
     "tagline": "Información de negocio con IA para tu empresa",
     "signInFailed": "Error al iniciar sesión",
     "noAccount": "¿No tienes cuenta?",
-    "createOne": "Crear una"
+    "createOne": "Crear una",
+    "forgotPassword": "¿Olvidaste tu contraseña?"
   },
   "signup": {
     "title": "Crea tu cuenta",
@@ -385,5 +389,25 @@
     "item": "producto",
     "items": "productos",
     "viewCart": "Ver carrito"
+  },
+  "forgotPassword": {
+    "title": "Recuperar contraseña",
+    "requestTagline": "Ingresa tu email y te enviaremos un código de verificación.",
+    "confirmTagline": "Ingresa el código que enviamos a {{email}} y tu nueva contraseña.",
+    "doneTagline": "¡Contraseña restablecida!",
+    "doneBody": "Ya puedes iniciar sesión con tu nueva contraseña.",
+    "sendCode": "Enviar código",
+    "sending": "Enviando...",
+    "codeLabel": "Código de verificación",
+    "codePlaceholder": "123456",
+    "newPasswordLabel": "Nueva contraseña",
+    "confirmPasswordLabel": "Confirmar contraseña",
+    "confirmPasswordPlaceholder": "Repite la contraseña",
+    "resetPassword": "Restablecer contraseña",
+    "saving": "Guardando...",
+    "backToEmail": "Volver al email",
+    "passwordMismatch": "Las contraseñas no coinciden.",
+    "requestFailed": "No se pudo enviar el código. Verifica el email.",
+    "confirmFailed": "Código incorrecto o expirado. Inténtalo de nuevo."
   }
 }

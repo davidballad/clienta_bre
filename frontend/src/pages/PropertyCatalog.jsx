@@ -26,7 +26,7 @@ export default function PropertyCatalog() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [transactionType, setTransactionType] = useState('all');
-  const [meta, setMeta] = useState({ business_name: 'Catálogo Inmobiliario', support_phone: '' });
+  const [meta, setMeta] = useState({ business_name: 'Catálogo Inmobiliario', support_phone: '', logo_url: '' });
 
   useEffect(() => {
     // Fetch Metadata (Name & Phone), resolving slug to real tenant_id if needed
@@ -38,7 +38,8 @@ export default function PropertyCatalog() {
         if (data.business_name) {
           setMeta({
             business_name: data.business_name,
-            support_phone: data.support_phone?.replace(/[^\d+]/g, '') || ''
+            support_phone: data.support_phone?.replace(/[^\d+]/g, '') || '',
+            logo_url: data.logo_url || '',
           });
         }
       })
@@ -80,8 +81,12 @@ export default function PropertyCatalog() {
       <header className="sticky top-0 z-40 border-b border-white bg-white/80 backdrop-blur-lg">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white shadow-lg shadow-brand-600/20">
-              <Building2 className="h-6 w-6" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-brand-600 text-white shadow-lg shadow-brand-600/20">
+              {meta.logo_url ? (
+                <img src={meta.logo_url} alt={meta.business_name} className="h-full w-full object-contain" />
+              ) : (
+                <Building2 className="h-6 w-6" />
+              )}
             </div>
             <div>
               <h1 className="text-sm font-bold text-gray-900 tracking-tight uppercase">{meta.business_name}</h1>

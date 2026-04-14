@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { completeSetup, getTenantConfig, patchTenantConfig } from '../api/onboarding';
-import { MessageCircle, ExternalLink, Pencil, CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { completeSetup, getTenantConfig, patchTenantConfig, getLogoUploadUrl } from '../api/onboarding';
+import { MessageCircle, ExternalLink, Pencil, CheckCircle, Plus, Trash2, ImageIcon, Upload, X } from 'lucide-react';
 
 const normalizePhoneNumber = (value) => String(value || '').replace(/\D/g, '');
 
@@ -23,6 +23,13 @@ export default function WhatsAppSetup() {
   const [catalogSlug, setCatalogSlug] = useState('');
   const [slugSaving, setSlugSaving] = useState(false);
   const [slugSuccess, setSlugSuccess] = useState('');
+  // Logo state
+  const [logoUrl, setLogoUrl] = useState('');
+  const [logoPreview, setLogoPreview] = useState('');
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoSuccess, setLogoSuccess] = useState('');
+  const [logoError, setLogoError] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -54,6 +61,8 @@ export default function WhatsAppSetup() {
       setIdentificationNumber(config.identification_number || '');
       setSupportPhone(config.support_phone || '');
       setCatalogSlug(config.catalog_slug || '');
+      setLogoUrl(config.logo_url || '');
+      setLogoPreview(config.logo_url || '');
     }
   }, [config]);
 
@@ -159,7 +168,97 @@ export default function WhatsAppSetup() {
         </button>
       </div>
 
-      {/* Shareable properties link */}
+      {/* Business Logo */}
+      <div className="mt-6 card max-w-xl">
+        <h2 className="mb-1 text-sm font-semibold text-gray-900">Logo del negocio</h2>
+        <p className="mb-4 text-xs text-gray-500">
+          Este logo aparecerá en la cabecera de tu catálogo público de propiedades.
+        </p>
+
+        {logoSuccess && <div className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-700">{logoSuccess}</div>}
+        {logoError && <div className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{logoError}</div>}
+
+        <div className="flex items-center gap-4">
+          {/* Preview circle */}
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50">
+            {logoPreview ? (
+              <img src={logoPreview} alt="Logo preview" className="h-full w-full object-contain" />
+            ) : (
+              <ImageIcon className="h-8 w-8 text-gray-300" />
+            )}
+          </div>
+
+          <div className="flex-1">
+            <label
+              htmlFor="logo-upload-input"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
+            >
+              <Upload className="h-4 w-4" />
+              {logoPreview ? 'Cambiar imagen' : 'Subir logo'}
+            </label>
+            <input
+              id="logo-upload-input"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/svg+xml"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setLogoFile(file);
+                setLogoPreview(URL.createObjectURL(file));
+                setLogoSuccess('');
+                setLogoError('');
+              }}
+            />
+            <p className="mt-1.5 text-xs text-gray-400">PNG, JPG, WEBP o SVG. Máx 2 MB.</p>
+            {logoPreview && logoPreview !== logoUrl && (
+              <button
+                type="button"
+                onClick={() => { setLogoPreview(logoUrl); setLogoFile(null); }}
+                className="mt-1 inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700"
+              >
+                <X className="h-3 w-3" /> Cancelar
+              </button>
+            )}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          disabled={logoUploading || !logoFile}
+          onClick={async () => {
+            if (!logoFile) return;
+            setLogoUploading(true);
+            setLogoSuccess('');
+            setLogoError('');
+            try {
+              // 1. Get presigned upload URL
+              const { upload_url, logo_url: publicUrl } = await getLogoUploadUrl(logoFile.type);
+              // 2. Upload file directly to S3
+              const putRes = await fetch(upload_url, {
+                method: 'PUT',
+                body: logoFile,
+                headers: { 'Content-Type': logoFile.type },
+              });
+              if (!putRes.ok) throw new Error('Error al subir el archivo');
+              // 3. Persist the public URL in config
+              await patchTenantConfig({ logo_url: publicUrl });
+              setLogoUrl(publicUrl);
+              setLogoPreview(publicUrl);
+              setLogoFile(null);
+              setLogoSuccess('¡Logo guardado correctamente!');
+            } catch (err) {
+              setLogoError(err.message || 'Error al subir el logo');
+            } finally {
+              setLogoUploading(false);
+            }
+          }}
+          className="mt-4 btn-primary text-sm disabled:opacity-50"
+        >
+          {logoUploading ? 'Subiendo...' : 'Guardar logo'}
+        </button>
+      </div>
+
       {config?.tenant_id && (
         <div className="mt-6 card max-w-xl">
           <h2 className="mb-1 text-sm font-semibold text-gray-900">Catálogo de propiedades</h2>

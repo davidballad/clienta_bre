@@ -114,6 +114,13 @@ resource "aws_s3_bucket_policy" "data" {
         Principal = "*"
         Action    = "s3:GetObject"
         Resource  = "${aws_s3_bucket.data.arn}/property-images/*"
+      },
+      {
+        Sid       = "PublicReadLogos"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.data.arn}/logos/*"
       }
     ]
   })
