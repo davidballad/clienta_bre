@@ -277,7 +277,7 @@ export default function BRELanding() {
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <Bot className="h-5 w-5 text-emerald-600" />
-            <span>IA Bedrock + Gemini</span>
+            <span>IA de Última Generación</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <WhatsAppGlyph className="h-5 w-5 opacity-70" />
