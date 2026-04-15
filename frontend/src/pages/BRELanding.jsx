@@ -43,7 +43,7 @@ function RealEstateBackground() {
       <div className="absolute top-[10%] left-[5%] h-72 w-72 rounded-full bg-emerald-500/8 blur-[100px] animate-pulse" />
       <div className="absolute top-[50%] right-[10%] h-96 w-96 rounded-full bg-teal-500/8 blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
       <div className="absolute bottom-[5%] left-[30%] h-64 w-64 rounded-full bg-emerald-400/6 blur-[80px] animate-pulse" style={{ animationDelay: '4s' }} />
-      
+
       <svg className="h-full w-full opacity-[0.08]" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="br-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -207,7 +207,7 @@ export default function BRELanding() {
           </Link>
           <div className="flex items-center gap-3">
             <a href="#features" className="hidden text-sm font-medium text-white/70 transition-colors hover:text-white sm:inline">Funciones</a>
-            <a href="#how" className="hidden text-sm font-medium text-white/70 transition-colors hover:text-white sm:inline">Cómo Funciona</a>
+            <a href="#how" className="hidden text-sm font-medium text-white/70 transition-colors hover:text-white sm:inline">Proceso</a>
             <a href="#contact" className="hidden text-sm font-medium text-white/70 transition-colors hover:text-white sm:inline">Contacto</a>
             <Link to="/login" className="rounded-lg px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10">
               Iniciar Sesión
@@ -413,13 +413,13 @@ export default function BRELanding() {
               <span className="text-sm font-bold text-gray-900">Clienta BR</span>
             </Link>
             <div className="flex items-center gap-4 text-sm text-gray-500">
-              <Link to="/" className="transition-colors hover:text-gray-700">Clienta AI</Link>
+              <Link to="https://clientaai.com" className="transition-colors hover:text-gray-700">Clienta AI</Link>
               <a href="/privacy-policy.html" className="transition-colors hover:text-gray-700">Privacidad</a>
               <a href="/terms-and-conditions.html" className="transition-colors hover:text-gray-700">Términos</a>
             </div>
           </div>
           <p className="mt-6 text-center text-sm text-gray-500">
-            © {new Date().getFullYear()} Clienta AI. Todos los derechos reservados. · Quito, Ecuador
+            © {new Date().getFullYear()} Clienta AI. Todos los derechos reservados. · Avenida Atahualpa y Victor Hugo, Ambato, Ecuador 180204
           </p>
         </div>
       </footer>
