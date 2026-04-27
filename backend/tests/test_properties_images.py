@@ -14,13 +14,15 @@ from tests.conftest import TENANT_ID, make_api_event
 
 
 @pytest.fixture
-def s3_data_bucket():
-    """Create the data bucket via moto so presigned URLs can be generated."""
-    from moto import mock_aws
-    with mock_aws():
-        client = boto3.client("s3", region_name="us-east-1")
-        client.create_bucket(Bucket="clienta-ai-test-data")
-        yield client
+def s3_data_bucket(dynamodb_table):
+    """Create the data bucket inside the active moto context started by dynamodb_table.
+
+    Depending on dynamodb_table guarantees a single mock_aws() session covers both
+    DynamoDB and S3 so handler tests can use both without state isolation.
+    """
+    client = boto3.client("s3", region_name="us-east-1")
+    client.create_bucket(Bucket="clienta-ai-test-data")
+    yield client
 
 
 def _s3_object_missing(s3_client, bucket, key) -> bool:
@@ -32,7 +34,7 @@ def _s3_object_missing(s3_client, bucket, key) -> bool:
         return e.response["Error"]["Code"] in ("404", "NoSuchKey", "NotFound")
 
 
-def test_upload_image_url_returns_presigned_put_for_jpeg(dynamodb_table, s3_data_bucket):
+def test_upload_image_url_returns_presigned_put_for_jpeg(s3_data_bucket):
     import handler
 
     event = make_api_event(
@@ -44,7 +46,6 @@ def test_upload_image_url_returns_presigned_put_for_jpeg(dynamodb_table, s3_data
             "content_type": "image/jpeg",
         },
     )
-    event["tenant_id"] = TENANT_ID  # dispatcher injects this; we set it directly for the helper test
 
     response = handler.get_image_upload_url(TENANT_ID, event)
 
@@ -57,7 +58,7 @@ def test_upload_image_url_returns_presigned_put_for_jpeg(dynamodb_table, s3_data
     assert body["image_url"].endswith(body["s3_key"])
 
 
-def test_upload_image_url_rejects_disallowed_mime(dynamodb_table, s3_data_bucket):
+def test_upload_image_url_rejects_disallowed_mime(s3_data_bucket):
     import handler
 
     event = make_api_event(
@@ -74,7 +75,7 @@ def test_upload_image_url_rejects_disallowed_mime(dynamodb_table, s3_data_bucket
     assert "Unsupported content_type" in json.loads(response["body"])["error"]
 
 
-def test_upload_image_url_rejects_missing_property_id(dynamodb_table, s3_data_bucket):
+def test_upload_image_url_rejects_missing_property_id(s3_data_bucket):
     import handler
 
     event = make_api_event(
@@ -86,7 +87,7 @@ def test_upload_image_url_rejects_missing_property_id(dynamodb_table, s3_data_bu
     assert response["statusCode"] == 400
 
 
-def test_upload_image_url_picks_extension_from_mime_not_filename(dynamodb_table, s3_data_bucket):
+def test_upload_image_url_picks_extension_from_mime_not_filename(s3_data_bucket):
     """A filename ending in .exe with image/png MIME must produce a .png key."""
     import handler
 
