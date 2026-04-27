@@ -117,6 +117,6 @@ def test_dispatcher_routes_upload_image(s3_data_bucket):
             "content_type": "image/jpeg",
         },
     )
-    response = handler.handler(event, None)
+    response = handler.lambda_handler(event, None)
     assert response["statusCode"] == 200
     assert "upload_url" in json.loads(response["body"])
