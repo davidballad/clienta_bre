@@ -574,6 +574,78 @@ def get_image_upload_url(tenant_id: str, event: dict[str, Any]) -> dict[str, Any
     return success(body={"upload_url": upload_url, "image_url": image_url, "s3_key": key})
 
 
+class ImageOwnershipError(Exception):
+    """Raised when an image_url does not belong to the caller's tenant/property."""
+
+
+def _parse_image_key(image_url: str, bucket: str) -> str | None:
+    """Return the S3 key from a fully-qualified image URL, or None if it doesn't match.
+
+    Accepts the virtual-hosted style URL we emit:
+      https://{bucket}.s3.{region}.amazonaws.com/{key}
+    """
+    if not image_url:
+        return None
+    marker = f"{bucket}.s3."
+    idx = image_url.find(marker)
+    if idx < 0:
+        return None
+    after = image_url[idx + len(marker):]
+    slash = after.find("/")
+    if slash < 0:
+        return None
+    return after[slash + 1:]
+
+
+def _detach_and_delete_image(tenant_id: str, property_id: str, image_url: str) -> dict[str, Any]:
+    """Remove image_url from the property record and delete the S3 object.
+
+    Returns the updated property dict.
+    Raises:
+      ImageOwnershipError: if the URL is not within this tenant+property's image prefix.
+      DynamoDBError: for DDB failures.
+    """
+    bucket = os.environ.get("DATA_BUCKET")
+    region = os.environ.get("AWS_REGION", "us-east-1")
+    if not bucket:
+        raise RuntimeError("DATA_BUCKET not configured")
+
+    key = _parse_image_key(image_url, bucket)
+    expected_prefix = f"{IMAGES_PREFIX}/{tenant_id}/{property_id}/"
+    if not key or not key.startswith(expected_prefix):
+        raise ImageOwnershipError(
+            f"image_url does not belong to tenant={tenant_id} property={property_id}"
+        )
+
+    pk = build_pk(tenant_id)
+    sk = build_sk("PROPERTY", property_id)
+    existing = get_item(pk=pk, sk=sk)
+    if not existing:
+        raise ImageOwnershipError(f"property {property_id} not found")
+
+    updates: dict[str, Any] = {}
+    if existing.get("image_url") == image_url:
+        updates["image_url"] = None
+    gallery = list(existing.get("gallery_urls") or [])
+    if image_url in gallery:
+        gallery = [u for u in gallery if u != image_url]
+        updates["gallery_urls"] = gallery
+
+    if updates:
+        existing = update_item(pk=pk, sk=sk, updates=updates)
+
+    # Tolerate missing S3 object (already deleted, or upload never completed).
+    try:
+        import boto3
+        s3 = boto3.client("s3", region_name=region)
+        s3.delete_object(Bucket=bucket, Key=key)
+    except Exception as e:  # noqa: BLE001 — log-and-continue is intentional
+        import logging
+        logging.getLogger(__name__).warning("S3 delete failed for %s: %s", key, e)
+
+    return existing
+
+
 # ── CSV Import ──────────────────────────────────────────────────────────
 
 
