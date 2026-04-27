@@ -518,6 +518,62 @@ def get_document_upload_url(tenant_id: str, event: dict[str, Any]) -> dict[str, 
     return success(body={"upload_url": upload_url, "document_url": doc_url, "s3_key": key})
 
 
+# ── Image Upload URLs ───────────────────────────────────────────────────
+
+IMAGES_PREFIX = "property-images"
+ALLOWED_IMAGE_MIMES = {"image/jpeg", "image/png", "image/webp"}
+MIME_TO_EXT = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+}
+
+
+def get_image_upload_url(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
+    """POST /properties/upload-image — presigned PUT URL for a property image.
+
+    Body: { property_id, filename, content_type }
+    Returns: { upload_url, image_url, s3_key }
+    """
+    bucket = os.environ.get("DATA_BUCKET")
+    region = os.environ.get("AWS_REGION", "us-east-1")
+    if not bucket:
+        return server_error("DATA_BUCKET not configured")
+
+    try:
+        body = parse_body(event)
+    except json.JSONDecodeError:
+        return error("Invalid JSON body", 400)
+
+    property_id = (body.get("property_id") or "").strip()
+    content_type = (body.get("content_type") or "").strip().lower()
+
+    if not property_id:
+        return error("property_id is required", 400)
+    if content_type not in ALLOWED_IMAGE_MIMES:
+        return error(
+            f"Unsupported content_type. Allowed: {sorted(ALLOWED_IMAGE_MIMES)}",
+            400,
+        )
+
+    ext = MIME_TO_EXT[content_type]
+    key = f"{IMAGES_PREFIX}/{tenant_id}/{property_id}/{generate_id()}.{ext}"
+
+    try:
+        import boto3
+        s3 = boto3.client("s3", region_name=region)
+        upload_url = s3.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": bucket, "Key": key, "ContentType": content_type},
+            ExpiresIn=PRESIGNED_EXPIRY,
+        )
+    except Exception as e:
+        return server_error(f"Failed to generate upload URL: {e}")
+
+    image_url = f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
+    return success(body={"upload_url": upload_url, "image_url": image_url, "s3_key": key})
+
+
 # ── CSV Import ──────────────────────────────────────────────────────────
 
 
