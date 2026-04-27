@@ -108,28 +108,10 @@ resource "aws_iam_role_policy" "lambda_cognito" {
 }
 
 # -----------------------------------------------------------------------------
-# Bedrock (embeddings + Claude chat — BR properties)
+# NOTE: Bedrock IAM policy removed — AI stack migrated to Google GenAI.
+# Embeddings: Gemini Embedding 2, Generation: Gemma 3 27B, Vision: Gemini 2.5 Flash
+# Only S3 Vectors (AWS) remains for vector storage.
 # -----------------------------------------------------------------------------
-
-data "aws_iam_policy_document" "lambda_bedrock" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "bedrock:InvokeModel",
-      "bedrock:InvokeModelWithResponseStream"
-    ]
-    resources = [
-      "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.titan-embed-text-v2:0",
-      "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0"
-    ]
-  }
-}
-
-resource "aws_iam_role_policy" "lambda_bedrock" {
-  name   = "bedrock-invoke"
-  role   = aws_iam_role.lambda.id
-  policy = data.aws_iam_policy_document.lambda_bedrock.json
-}
 
 # -----------------------------------------------------------------------------
 # S3 Vectors (property embeddings — BR RAG)
@@ -292,11 +274,10 @@ resource "aws_lambda_function" "properties" {
       DATA_BUCKET          = aws_s3_bucket.data.id
       SERVICE_API_KEY      = var.service_api_key
       GEMINI_API_KEY       = var.gemini_api_key
-      # BR-specific
-      S3V_BUCKET_NAME     = aws_s3vectors_vector_bucket.br_properties.vector_bucket_name
-      S3V_INDEX_NAME      = aws_s3vectors_index.br_properties.index_name
-      BEDROCK_EMBED_MODEL = "amazon.titan-embed-text-v2:0"
-      BEDROCK_CHAT_MODEL  = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+      # BR-specific — AI stack is 100% Google GenAI
+      S3V_BUCKET_NAME        = aws_s3vectors_vector_bucket.br_properties.vector_bucket_name
+      S3V_INDEX_NAME         = aws_s3vectors_index.br_properties.index_name
+      GEMINI_GENERATION_MODEL = "gemma-3-27b-it"
     }
   }
 

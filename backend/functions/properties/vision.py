@@ -27,7 +27,7 @@ logger.setLevel(logging.INFO)
 
 # ── Config ───────────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = "gemini-2.0-flash"  # Latest Flash model available
+GEMINI_MODEL = "gemini-2.5-flash"  # Gemini 2.5 Flash — fast multimodal
 S3_BUCKET = os.environ.get("PROPERTY_DOCS_BUCKET", "clienta-br-property-docs")
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 

@@ -72,7 +72,7 @@ class Property(_BaseModel):
     # Media
     image_url: str | None = None
     gallery_urls: list[str] | None = None
-    # Documents (S3 keys for Bedrock RAG)
+    # Documents (S3 keys indexed via Gemini Embedding for RAG)
     document_keys: list[str] | None = None  # ["tenant/prop_id/docs/escritura.pdf", ...]
     # Meta Ads Integration
     external_ad_id: str | None = None

@@ -3,7 +3,7 @@ S3 + S3 Vectors document management for Clienta BR properties.
 
 This module handles:
 1. Uploading property documents (PDFs, images) to S3
-2. Generating embeddings via Amazon Titan Embed V2
+2. Generating embeddings via Gemini Embedding (google-genai)
 3. Storing vectors in S3 Vectors for RAG retrieval
 4. Syncing property metadata with vector index
 5. Removing vectors when a property is sold/rented
@@ -11,7 +11,6 @@ This module handles:
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import re
@@ -27,14 +26,15 @@ logger.setLevel(logging.INFO)
 S3_BUCKET = os.environ.get("PROPERTY_DOCS_BUCKET", "clienta-br-property-docs")
 VECTOR_BUCKET = os.environ.get("S3_VECTOR_BUCKET", "clienta-br-vectors")
 VECTOR_INDEX = os.environ.get("S3_VECTOR_INDEX", "property-listings")
-EMBED_MODEL_ID = "amazon.titan-embed-text-v2:0"
-EMBED_DIMENSIONS = 512  # cost-optimised; 256|512|1024 supported
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_EMBED_MODEL = "gemini-embedding-2"  # Google Gemini Embedding
+EMBED_DIMENSIONS = 768  # reduced from 3072 default for cost/speed
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 
 # Lazy clients ────────────────────────────────────────────────────────────────
 _s3: Any = None
 _s3v: Any = None
-_bedrock: Any = None
+_genai_client: Any = None
 
 
 def _get_s3():
@@ -51,20 +51,22 @@ def _get_s3v():
     return _s3v
 
 
-def _get_bedrock():
-    global _bedrock
-    if _bedrock is None:
-        _bedrock = boto3.client("bedrock-runtime", region_name=REGION)
-    return _bedrock
+def _get_genai_client():
+    """Lazily initialize the google-genai client for embeddings."""
+    global _genai_client
+    if _genai_client is None:
+        from google import genai
+        _genai_client = genai.Client(api_key=GEMINI_API_KEY)
+    return _genai_client
 
 
 # ── Embedding ────────────────────────────────────────────────────────────────
 
 def generate_embedding(text: str) -> list[float]:
-    """Generate a vector embedding using Amazon Titan Embed V2.
+    """Generate a vector embedding using Gemini Embedding (google-genai).
 
     Args:
-        text: The text to embed (max 8192 tokens).
+        text: The text to embed.
 
     Returns:
         List of floats with `EMBED_DIMENSIONS` dimensions.
@@ -72,19 +74,13 @@ def generate_embedding(text: str) -> list[float]:
     if not text or not text.strip():
         raise ValueError("Cannot embed empty text")
 
-    payload = {
-        "inputText": text[:8000],  # safety truncation
-        "dimensions": EMBED_DIMENSIONS,
-        "normalize": True,
-    }
-    response = _get_bedrock().invoke_model(
-        body=json.dumps(payload),
-        modelId=EMBED_MODEL_ID,
-        accept="application/json",
-        contentType="application/json",
+    client = _get_genai_client()
+    result = client.models.embed_content(
+        model=GEMINI_EMBED_MODEL,
+        contents=text[:8000],  # safety truncation
+        config={"output_dimensionality": EMBED_DIMENSIONS},
     )
-    body = json.loads(response["body"].read())
-    return body["embedding"]
+    return result.embeddings[0].values
 
 
 # ── S3 Vectors Management ───────────────────────────────────────────────────

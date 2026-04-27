@@ -3,11 +3,14 @@ RAG query engine for Clienta BR real estate properties.
 
 Uses:
 - S3 Vectors for semantic similarity search
-- Claude 3.5 Sonnet (Bedrock) for answer generation from retrieved context
+- Gemini Embedding 2 (google-genai) for query embeddings
+- Gemma 3 27B (google-genai) for answer generation + intent detection
 - Metadata filtering (status, city, transaction_type) for precision
 
 Designed to power WhatsApp bot responses about property details,
 legal documents, pricing, and availability.
+
+Architecture: 100% Google GenAI for AI — AWS only for S3 Vectors storage.
 """
 
 from __future__ import annotations
@@ -15,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from typing import Any
 
 import boto3
@@ -25,19 +29,28 @@ logger.setLevel(logging.INFO)
 # ── Config ───────────────────────────────────────────────────────────────────
 VECTOR_BUCKET = os.environ.get("S3_VECTOR_BUCKET", "clienta-br-vectors")
 VECTOR_INDEX = os.environ.get("S3_VECTOR_INDEX", "property-listings")
-EMBED_MODEL_ID = "amazon.titan-embed-text-v2:0"
-EMBED_DIMENSIONS = 512
-# Claude 3.5 Sonnet for complex reasoning over retrieved context
-GENERATION_MODEL_ID = os.environ.get(
-    "BEDROCK_GENERATION_MODEL",
-    "anthropic.claude-3-5-sonnet-20241022-v2:0",
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+# Embedding config
+GEMINI_EMBED_MODEL = "gemini-embedding-2"  # Google Gemini Embedding
+EMBED_DIMENSIONS = 768  # must match documents.py
+
+# Generation config — Gemma 3 27B via Google AI Studio
+GENERATION_MODEL = os.environ.get(
+    "GEMINI_GENERATION_MODEL",
+    "gemma-3-27b-it",
 )
+MAX_OUTPUT_TOKENS = 500  # concise for WhatsApp
+GENERATION_TEMPERATURE = 0.3  # low for factual RAG responses
+INTENT_TEMPERATURE = 0.1  # very low for structured classification
+
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 TOP_K = 5  # Number of vectors to retrieve
 
+
 # ── Lazy Clients ─────────────────────────────────────────────────────────────
 _s3v: Any = None
-_bedrock: Any = None
+_genai_client: Any = None
 
 
 def _get_s3v():
@@ -47,30 +60,26 @@ def _get_s3v():
     return _s3v
 
 
-def _get_bedrock():
-    global _bedrock
-    if _bedrock is None:
-        _bedrock = boto3.client("bedrock-runtime", region_name=REGION)
-    return _bedrock
+def _get_genai_client():
+    """Google GenAI client — single client for embeddings + generation."""
+    global _genai_client
+    if _genai_client is None:
+        from google import genai
+        _genai_client = genai.Client(api_key=GEMINI_API_KEY)
+    return _genai_client
 
 
 # ── Embedding ────────────────────────────────────────────────────────────────
 
 def _embed_query(text: str) -> list[float]:
-    """Generate embedding for a query string using Titan Embed V2."""
-    payload = {
-        "inputText": text[:8000],
-        "dimensions": EMBED_DIMENSIONS,
-        "normalize": True,
-    }
-    response = _get_bedrock().invoke_model(
-        body=json.dumps(payload),
-        modelId=EMBED_MODEL_ID,
-        accept="application/json",
-        contentType="application/json",
+    """Generate embedding for a query string using Gemini Embedding."""
+    client = _get_genai_client()
+    result = client.models.embed_content(
+        model=GEMINI_EMBED_MODEL,
+        contents=text[:8000],
+        config={"output_dimensionality": EMBED_DIMENSIONS},
     )
-    body = json.loads(response["body"].read())
-    return body["embedding"]
+    return result.embeddings[0].values
 
 
 # ── Vector Search ────────────────────────────────────────────────────────────
@@ -149,6 +158,62 @@ def search_properties(
         query[:50], len(results), tenant_id,
     )
     return results
+
+
+# ── Generation Helper ────────────────────────────────────────────────────────
+
+def _generate(
+    *,
+    system_instruction: str,
+    contents: list[dict[str, str]] | str,
+    temperature: float = GENERATION_TEMPERATURE,
+    max_tokens: int = MAX_OUTPUT_TOKENS,
+) -> str:
+    """Unified generation call via google-genai.
+
+    Converts role-based messages into Google GenAI Content format and calls
+    the configured generation model (Gemma 3 27B by default).
+
+    Args:
+        system_instruction: System prompt for the model.
+        contents: Either a string (single-turn) or list of {role, content} dicts.
+        temperature: Sampling temperature (lower = more deterministic).
+        max_tokens: Maximum output tokens.
+
+    Returns:
+        Generated text string.
+    """
+    client = _get_genai_client()
+    from google.genai import types
+
+    # Build the content parts
+    if isinstance(contents, str):
+        genai_contents = contents
+    else:
+        # Convert [{role, content}] → Google GenAI Content objects
+        genai_contents = []
+        for msg in contents:
+            role = msg.get("role", "user")
+            # Google GenAI uses "user" and "model" (not "assistant")
+            if role == "assistant":
+                role = "model"
+            genai_contents.append(
+                types.Content(
+                    role=role,
+                    parts=[types.Part.from_text(text=msg["content"])],
+                )
+            )
+
+    response = client.models.generate_content(
+        model=GENERATION_MODEL,
+        contents=genai_contents,
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            max_output_tokens=max_tokens,
+            temperature=temperature,
+        ),
+    )
+    return response.text
 
 
 # ── RAG Generation ───────────────────────────────────────────────────────────
@@ -233,7 +298,7 @@ def generate_rag_response(
 
     context = "\n".join(context_parts)
 
-    # Step 3: Build messages for Claude
+    # Step 3: Build conversation for generation
     messages = []
 
     # Add conversation history if available
@@ -255,25 +320,14 @@ Responde de forma útil y concisa basándote SOLO en el contexto proporcionado."
 
     messages.append({"role": "user", "content": user_message})
 
-    # Step 4: Generate with Claude
+    # Step 4: Generate with Gemma 3 27B
     try:
-        body = json.dumps({
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 500,
-            "system": SYSTEM_PROMPT,
-            "messages": messages,
-            "temperature": 0.3,
-        })
-
-        response = _get_bedrock().invoke_model(
-            body=body,
-            modelId=GENERATION_MODEL_ID,
-            accept="application/json",
-            contentType="application/json",
+        answer = _generate(
+            system_instruction=SYSTEM_PROMPT,
+            contents=messages,
+            temperature=GENERATION_TEMPERATURE,
+            max_tokens=MAX_OUTPUT_TOKENS,
         )
-
-        response_body = json.loads(response["body"].read())
-        answer = response_body["content"][0]["text"]
 
         # Calculate confidence based on search scores
         avg_score = sum(r.get("score", 0) for r in search_results) / len(search_results)
@@ -282,7 +336,7 @@ Responde de forma útil y concisa basándote SOLO en el contexto proporcionado."
             "answer": answer,
             "sources": source_ids,
             "confidence": round(avg_score, 3),
-            "model": GENERATION_MODEL_ID,
+            "model": GENERATION_MODEL,
             "results_count": len(search_results),
         }
 
@@ -302,7 +356,7 @@ INTENT_PROMPT = """Analiza el siguiente mensaje de un cliente de WhatsApp y dete
 
 Mensaje: "{message}"
 
-Responde SOLO con un JSON:
+Responde SOLO con un JSON válido (sin markdown, sin ```json):
 {{
   "intent": "buy" | "rent" | "info" | "visit" | "other",
   "urgency": "high" | "medium" | "low",
@@ -329,27 +383,15 @@ def detect_intent(message: str) -> dict[str, Any]:
         Dict with intent classification fields.
     """
     try:
-        body = json.dumps({
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 300,
-            "messages": [
-                {"role": "user", "content": INTENT_PROMPT.format(message=message)},
-            ],
-            "temperature": 0.1,
-        })
-
-        response = _get_bedrock().invoke_model(
-            body=body,
-            modelId=GENERATION_MODEL_ID,
-            accept="application/json",
-            contentType="application/json",
+        text = _generate(
+            system_instruction="Eres un clasificador de intención. Responde SOLO con JSON válido, sin texto adicional.",
+            contents=INTENT_PROMPT.format(message=message),
+            temperature=INTENT_TEMPERATURE,
+            max_tokens=300,
         )
 
-        response_body = json.loads(response["body"].read())
-        text = response_body["content"][0]["text"].strip()
-
-        # Parse JSON from response
-        import re
+        # Strip markdown code fences if present
+        text = text.strip()
         if text.startswith("```"):
             text = re.sub(r"^```(?:json)?\s*", "", text)
             text = re.sub(r"\s*```$", "", text)
