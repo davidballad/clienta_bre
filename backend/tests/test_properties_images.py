@@ -103,3 +103,20 @@ def test_upload_image_url_picks_extension_from_mime_not_filename(s3_data_bucket)
     response = handler.get_image_upload_url(TENANT_ID, event)
     assert response["statusCode"] == 200
     assert json.loads(response["body"])["s3_key"].endswith(".png")
+
+
+def test_dispatcher_routes_upload_image(s3_data_bucket):
+    import handler
+
+    event = make_api_event(
+        method="POST",
+        path="/properties/upload-image",
+        body={
+            "property_id": "prop_abc",
+            "filename": "x.jpg",
+            "content_type": "image/jpeg",
+        },
+    )
+    response = handler.handler(event, None)
+    assert response["statusCode"] == 200
+    assert "upload_url" in json.loads(response["body"])

@@ -1024,6 +1024,10 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         if method == "POST" and path.endswith("/properties/upload-doc"):
             return get_document_upload_url(tenant_id, event)
 
+        # Image upload URL
+        if method == "POST" and path.endswith("/properties/upload-image"):
+            return get_image_upload_url(tenant_id, event)
+
         # ── AI Endpoints ────────────────────────────────────────────────
         if method == "POST" and path.endswith("/properties/extract-flyer"):
             return extract_from_flyer(tenant_id, event)
