@@ -464,13 +464,17 @@ def update_property(tenant_id: str, property_id: str, event: dict[str, Any]) -> 
 
 
 def delete_property(tenant_id: str, property_id: str) -> dict[str, Any]:
-    """Delete a property."""
+    """Delete a property + all associated S3 images."""
     pk = build_pk(tenant_id)
     sk = build_sk("PROPERTY", property_id)
     try:
         delete_item(pk=pk, sk=sk)
     except DynamoDBError as e:
         return server_error(str(e))
+
+    # Best-effort S3 cleanup. Failures here must not block the response.
+    _delete_all_property_images(tenant_id, property_id)
+
     return no_content()
 
 
@@ -578,23 +582,39 @@ class ImageOwnershipError(Exception):
     """Raised when an image_url does not belong to the caller's tenant/property."""
 
 
+class PropertyNotFoundError(Exception):
+    """Raised when a property does not exist."""
+
+
 def _parse_image_key(image_url: str, bucket: str) -> str | None:
     """Return the S3 key from a fully-qualified image URL, or None if it doesn't match.
 
-    Accepts the virtual-hosted style URL we emit:
-      https://{bucket}.s3.{region}.amazonaws.com/{key}
+    Validates that the URL hostname is a virtual-hosted-style S3 URL for the
+    expected bucket. Rejects URLs with path traversal segments.
+
+    Accepts: https://{bucket}.s3.{region}.amazonaws.com/{key}
     """
     if not image_url:
         return None
-    marker = f"{bucket}.s3."
-    idx = image_url.find(marker)
-    if idx < 0:
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(image_url)
+    except Exception:  # noqa: BLE001
         return None
-    after = image_url[idx + len(marker):]
-    slash = after.find("/")
-    if slash < 0:
+    if parsed.scheme not in ("https", "http"):
         return None
-    return after[slash + 1:]
+    expected_host_prefix = f"{bucket}.s3."
+    if not parsed.netloc.startswith(expected_host_prefix):
+        return None
+    if not parsed.netloc.endswith(".amazonaws.com"):
+        return None
+    key = parsed.path.lstrip("/")
+    if not key:
+        return None
+    # Reject path traversal segments
+    if ".." in key.split("/"):
+        return None
+    return key
 
 
 def _detach_and_delete_image(tenant_id: str, property_id: str, image_url: str) -> dict[str, Any]:
@@ -621,7 +641,7 @@ def _detach_and_delete_image(tenant_id: str, property_id: str, image_url: str) -
     sk = build_sk("PROPERTY", property_id)
     existing = get_item(pk=pk, sk=sk)
     if not existing:
-        raise ImageOwnershipError(f"property {property_id} not found")
+        raise PropertyNotFoundError(f"property {property_id} not found")
 
     updates: dict[str, Any] = {}
     if existing.get("image_url") == image_url:
@@ -644,6 +664,72 @@ def _detach_and_delete_image(tenant_id: str, property_id: str, image_url: str) -
         logging.getLogger(__name__).warning("S3 delete failed for %s: %s", key, e)
 
     return existing
+
+
+def delete_property_image(
+    tenant_id: str, property_id: str, event: dict[str, Any]
+) -> dict[str, Any]:
+    """DELETE /properties/{id}/images — remove one image from S3 and the record.
+
+    Body: { image_url: str }
+    """
+    try:
+        body = parse_body(event)
+    except json.JSONDecodeError:
+        return error("Invalid JSON body", 400)
+
+    image_url = (body.get("image_url") or "").strip()
+    if not image_url:
+        return error("image_url is required", 400)
+
+    try:
+        updated = _detach_and_delete_image(tenant_id, property_id, image_url)
+    except PropertyNotFoundError as e:
+        return not_found(str(e))
+    except ImageOwnershipError as e:
+        return error(str(e), 403)
+    except (DynamoDBError, RuntimeError) as e:
+        return server_error(str(e))
+
+    return success(body=Property.from_dynamo(updated).to_dict())
+
+
+def _delete_all_property_images(tenant_id: str, property_id: str) -> None:
+    """Best-effort: delete every S3 object under property-images/{tenant}/{prop}/.
+
+    Logs and swallows individual errors so a partial S3 failure doesn't
+    block the property delete. Streams deletes per pagination page so
+    memory usage stays bounded regardless of object count.
+    """
+    bucket = os.environ.get("DATA_BUCKET")
+    region = os.environ.get("AWS_REGION", "us-east-1")
+    if not bucket:
+        return
+
+    prefix = f"{IMAGES_PREFIX}/{tenant_id}/{property_id}/"
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        import boto3
+        s3 = boto3.client("s3", region_name=region)
+        paginator = s3.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            objects = [{"Key": o["Key"]} for o in (page.get("Contents") or [])]
+            if not objects:
+                continue
+            resp = s3.delete_objects(
+                Bucket=bucket,
+                Delete={"Objects": objects, "Quiet": True},
+            )
+            for err in resp.get("Errors", []) or []:
+                logger.warning(
+                    "Cascade delete: %s failed (%s): %s",
+                    err.get("Key"), err.get("Code"), err.get("Message"),
+                )
+    except Exception as e:  # noqa: BLE001
+        logger.warning(
+            "Failed cascade image cleanup for %s/%s: %s", tenant_id, property_id, e
+        )
 
 
 # ── CSV Import ──────────────────────────────────────────────────────────
@@ -1125,6 +1211,10 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             return get_property(tenant_id, property_id)
         if method in ("PUT", "PATCH") and property_id:
             return update_property(tenant_id, property_id, event)
+        # Delete a single image from a property
+        if method == "DELETE" and property_id and path.endswith(f"/properties/{property_id}/images"):
+            return delete_property_image(tenant_id, property_id, event)
+
         if method == "DELETE" and property_id:
             return delete_property(tenant_id, property_id)
 

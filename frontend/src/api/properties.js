@@ -68,6 +68,20 @@ export function getDocumentUploadUrl({ propertyId, filename, contentType }) {
   });
 }
 
+/** Get a presigned PUT URL to upload an image for a property. */
+export function getImageUploadUrl({ propertyId, filename, contentType }) {
+  return api.post('/properties/upload-image', {
+    property_id: propertyId,
+    filename: filename || 'image.jpg',
+    content_type: contentType || 'image/jpeg',
+  });
+}
+
+/** Delete a single image from a property (S3 + record). */
+export function deletePropertyImage({ propertyId, imageUrl }) {
+  return api.delete(`/properties/${propertyId}/images`, { image_url: imageUrl });
+}
+
 /** Import properties from CSV text. */
 export function importPropertiesCsv(csvText) {
   return api.postRaw('/properties/import', csvText, 'text/csv');

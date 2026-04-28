@@ -204,3 +204,204 @@ def test_detach_and_delete_image_tolerates_missing_s3_object(s3_data_bucket):
     # Must not raise
     updated = handler._detach_and_delete_image(TENANT_ID, "prop_q", image_url)
     assert updated["image_url"] in (None, "")
+
+
+def test_detach_and_delete_image_rejects_cross_property_url(s3_data_bucket):
+    """A URL whose key references a different property of the same tenant must be rejected."""
+    import handler
+
+    bucket = os.environ.get("DATA_BUCKET")
+    other_property_url = (
+        f"https://{bucket}.s3.us-east-1.amazonaws.com/"
+        f"property-images/{TENANT_ID}/prop_OTHER/x.jpg"
+    )
+
+    with pytest.raises(handler.ImageOwnershipError):
+        handler._detach_and_delete_image(TENANT_ID, "prop_THIS", other_property_url)
+
+
+def test_parse_image_key_rejects_spoofed_url_with_bucket_in_path(s3_data_bucket):
+    """An attacker URL where the bucket-marker only appears in the path must be rejected."""
+    import handler
+
+    bucket = os.environ.get("DATA_BUCKET")
+    spoofed = f"https://attacker.example/{bucket}.s3.us-east-1.amazonaws.com/property-images/{TENANT_ID}/prop_x/x.jpg"
+
+    assert handler._parse_image_key(spoofed, bucket) is None
+
+
+def test_parse_image_key_rejects_path_traversal(s3_data_bucket):
+    """Keys containing '..' segments must be rejected."""
+    import handler
+
+    bucket = os.environ.get("DATA_BUCKET")
+    traversal = f"https://{bucket}.s3.us-east-1.amazonaws.com/property-images/T/P/../../other/x.jpg"
+
+    assert handler._parse_image_key(traversal, bucket) is None
+
+
+def test_delete_property_image_endpoint_happy_path(s3_data_bucket):
+    import handler
+    from shared.utils import build_pk, build_sk
+    from shared.db import put_item
+
+    bucket = os.environ.get("DATA_BUCKET")
+    cover_key = f"property-images/{TENANT_ID}/prop_a/cover.jpg"
+    gallery_key = f"property-images/{TENANT_ID}/prop_a/gallery.jpg"
+    cover_url = f"https://{bucket}.s3.us-east-1.amazonaws.com/{cover_key}"
+    gallery_url = f"https://{bucket}.s3.us-east-1.amazonaws.com/{gallery_key}"
+    s3_data_bucket.put_object(Bucket=bucket, Key=gallery_key, Body=b"x")
+
+    put_item({
+        "pk": build_pk(TENANT_ID), "sk": build_sk("PROPERTY", "prop_a"),
+        "id": "prop_a", "name": "T", "image_url": cover_url,
+        "gallery_urls": [gallery_url],
+    })
+
+    event = make_api_event(
+        method="DELETE",
+        path="/properties/prop_a/images",
+        body={"image_url": gallery_url},
+        path_params={"id": "prop_a"},
+    )
+    response = handler.lambda_handler(event, None)
+
+    assert response["statusCode"] == 200
+    body = json.loads(response["body"])
+    assert gallery_url not in (body.get("gallery_urls") or [])
+
+
+def test_delete_property_image_rejects_cross_tenant(s3_data_bucket):
+    import handler
+    from shared.utils import build_pk, build_sk
+    from shared.db import put_item
+
+    bucket = os.environ.get("DATA_BUCKET")
+    foreign_url = f"https://{bucket}.s3.us-east-1.amazonaws.com/property-images/other/prop_b/x.jpg"
+
+    put_item({
+        "pk": build_pk(TENANT_ID), "sk": build_sk("PROPERTY", "prop_b"),
+        "id": "prop_b", "name": "T",
+    })
+
+    event = make_api_event(
+        method="DELETE",
+        path="/properties/prop_b/images",
+        body={"image_url": foreign_url},
+        path_params={"id": "prop_b"},
+    )
+    response = handler.lambda_handler(event, None)
+
+    assert response["statusCode"] == 403
+
+
+def test_delete_property_image_returns_404_when_property_missing(s3_data_bucket):
+    import handler
+
+    bucket = os.environ.get("DATA_BUCKET")
+    image_url = f"https://{bucket}.s3.us-east-1.amazonaws.com/property-images/{TENANT_ID}/prop_ghost/x.jpg"
+
+    event = make_api_event(
+        method="DELETE",
+        path="/properties/prop_ghost/images",
+        body={"image_url": image_url},
+        path_params={"id": "prop_ghost"},
+    )
+    response = handler.lambda_handler(event, None)
+
+    assert response["statusCode"] == 404
+
+
+def test_delete_property_image_requires_image_url(s3_data_bucket):
+    import handler
+
+    event = make_api_event(
+        method="DELETE",
+        path="/properties/prop_c/images",
+        body={},
+        path_params={"id": "prop_c"},
+    )
+    response = handler.lambda_handler(event, None)
+    assert response["statusCode"] == 400
+
+
+def test_delete_property_cascades_image_cleanup(s3_data_bucket):
+    """Deleting a property must also delete every object under its image prefix."""
+    import handler
+    from shared.utils import build_pk, build_sk
+    from shared.db import put_item
+
+    bucket = os.environ.get("DATA_BUCKET")
+    keys = [
+        f"property-images/{TENANT_ID}/prop_del/img1.jpg",
+        f"property-images/{TENANT_ID}/prop_del/img2.png",
+        f"property-images/{TENANT_ID}/prop_del/img3.webp",
+    ]
+    for k in keys:
+        s3_data_bucket.put_object(Bucket=bucket, Key=k, Body=b"x")
+
+    put_item({
+        "pk": build_pk(TENANT_ID), "sk": build_sk("PROPERTY", "prop_del"),
+        "id": "prop_del", "name": "T",
+    })
+
+    event = make_api_event(
+        method="DELETE",
+        path="/properties/prop_del",
+        path_params={"id": "prop_del"},
+    )
+    response = handler.lambda_handler(event, None)
+
+    assert response["statusCode"] in (200, 204)
+
+    # Verify every object is gone
+    for k in keys:
+        assert _s3_object_missing(s3_data_bucket, bucket, k)
+
+
+def test_delete_property_succeeds_even_when_no_images(s3_data_bucket):
+    """A property with zero images must still be deletable."""
+    import handler
+    from shared.utils import build_pk, build_sk
+    from shared.db import put_item
+
+    put_item({
+        "pk": build_pk(TENANT_ID), "sk": build_sk("PROPERTY", "prop_empty"),
+        "id": "prop_empty", "name": "T",
+    })
+
+    event = make_api_event(
+        method="DELETE",
+        path="/properties/prop_empty",
+        path_params={"id": "prop_empty"},
+    )
+    response = handler.lambda_handler(event, None)
+    assert response["statusCode"] in (200, 204)
+
+
+def test_delete_property_cascade_does_not_touch_sibling_property(s3_data_bucket):
+    """Cascade must only delete the target property's prefix, never a sibling's."""
+    import handler
+    from shared.utils import build_pk, build_sk
+    from shared.db import put_item
+
+    bucket = os.environ.get("DATA_BUCKET")
+    sibling_key = f"property-images/{TENANT_ID}/prop_sibling/img.jpg"
+    target_key = f"property-images/{TENANT_ID}/prop_target/img.jpg"
+    s3_data_bucket.put_object(Bucket=bucket, Key=sibling_key, Body=b"x")
+    s3_data_bucket.put_object(Bucket=bucket, Key=target_key, Body=b"x")
+
+    put_item({
+        "pk": build_pk(TENANT_ID), "sk": build_sk("PROPERTY", "prop_target"),
+        "id": "prop_target", "name": "T",
+    })
+
+    event = make_api_event(
+        method="DELETE",
+        path="/properties/prop_target",
+        path_params={"id": "prop_target"},
+    )
+    handler.lambda_handler(event, None)
+
+    assert _s3_object_missing(s3_data_bucket, bucket, target_key), "target must be gone"
+    assert not _s3_object_missing(s3_data_bucket, bucket, sibling_key), "sibling must survive"

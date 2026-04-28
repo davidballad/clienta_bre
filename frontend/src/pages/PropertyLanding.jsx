@@ -1,9 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { fetchPublicProperties } from '../api/properties';
-
-const isULID = (s) => /^[0-9A-Z]{26}$/.test(s);
-const metaParam = (param) => isULID(param) ? `tenant_id=${param}` : `slug=${param}`;
 import {
   Building2,
   MapPin,
@@ -16,11 +12,16 @@ import {
   Car,
   Layers,
 } from 'lucide-react';
+import { fetchPublicProperties } from '../api/properties';
+
+const isULID = (s) => /^[0-9A-Z]{26}$/.test(s);
+const metaParam = (param) => isULID(param) ? `tenant_id=${param}` : `slug=${param}`;
 
 export default function PropertyLanding() {
   const { tenantId: tenantParam, propertyId } = useParams();
   const [resolvedTenantId, setResolvedTenantId] = useState(isULID(tenantParam) ? tenantParam : null);
   const [property, setProperty] = useState(null);
+  const [activeImage, setActiveImage] = useState(null);
   const [meta, setMeta] = useState({ business_name: 'Catálogo Inmobiliario', support_phone: '' });
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -46,8 +47,10 @@ export default function PropertyLanding() {
     fetchPublicProperties(resolvedTenantId, { limit: 200 })
       .then(data => {
         const found = (data.properties || []).find(p => p.id === propertyId);
-        if (found) setProperty(found);
-        else setNotFound(true);
+        if (found) {
+          setProperty(found);
+          setActiveImage(found.image_url || null);
+        } else setNotFound(true);
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
@@ -115,8 +118,12 @@ export default function PropertyLanding() {
           <div className="space-y-6">
             {/* Hero image */}
             <div className="relative overflow-hidden rounded-3xl bg-gray-100 h-72 sm:h-96">
-              {property.image_url ? (
-                <img src={property.image_url} alt={property.name} className="h-full w-full object-cover" />
+              {(activeImage || property.image_url) ? (
+                <img
+                  src={activeImage || property.image_url}
+                  alt={property.name}
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <div className="flex h-full w-full items-center justify-center">
                   <Building2 className="h-20 w-20 text-gray-200" />
@@ -133,6 +140,37 @@ export default function PropertyLanding() {
                 </span>
               </div>
             </div>
+
+            {/* Gallery thumbnails */}
+            {(property.gallery_urls?.length || 0) > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-2 -mt-3">
+                {property.image_url && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveImage(property.image_url)}
+                    className={`relative h-20 w-28 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
+                      activeImage === property.image_url ? 'border-brand-600' : 'border-transparent opacity-70 hover:opacity-100'
+                    }`}
+                    aria-label="Ver portada"
+                  >
+                    <img src={property.image_url} alt="" className="h-full w-full object-cover" />
+                  </button>
+                )}
+                {(property.gallery_urls || []).map((url) => (
+                  <button
+                    key={url}
+                    type="button"
+                    onClick={() => setActiveImage(url)}
+                    className={`relative h-20 w-28 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
+                      activeImage === url ? 'border-brand-600' : 'border-transparent opacity-70 hover:opacity-100'
+                    }`}
+                    aria-label="Ver imagen"
+                  >
+                    <img src={url} alt="" className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="grid gap-6 lg:grid-cols-3">
               {/* Main info */}

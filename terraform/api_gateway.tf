@@ -341,6 +341,24 @@ resource "aws_apigatewayv2_route" "properties_template" {
   target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
 }
 
+resource "aws_apigatewayv2_route" "properties_upload_doc" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /properties/upload-doc"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_upload_image" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /properties/upload-image"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_delete_image" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "DELETE /properties/{id}/images"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
 # --- Appointments (Scheduling) ---
 # Upcoming check — called by n8n agent (service key) before starting a booking
 resource "aws_apigatewayv2_route" "appointments_upcoming" {

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Building2,
   Save,
@@ -16,9 +16,16 @@ import {
   Sparkles,
   CheckCircle,
   AlertTriangle,
+  Star,
+  Trash2,
 } from 'lucide-react';
 import { useCreateProperty, useUpdateProperty, useProperty, useExtractFlyer } from '../hooks/useProperties';
-import { getDocumentUploadUrl, processDocument } from '../api/properties';
+import {
+  getDocumentUploadUrl,
+  processDocument,
+  getImageUploadUrl,
+  deletePropertyImage,
+} from '../api/properties';
 
 const PROPERTY_TYPES = [
   { value: 'departamento', label: 'Departamento / Suite' },
@@ -58,14 +65,19 @@ const INITIAL_FORM = {
 export default function PropertyForm() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const location = useLocation();
   const isEditing = !!id;
 
   const fileInputRef = useRef(null);
   const docInputRef = useRef(null);
   const flyerInputRef = useRef(null);
+  const imageInputRef = useRef(null);
 
   const [form, setForm] = useState(INITIAL_FORM);
   const [documents, setDocuments] = useState([]);
+  const [coverUrl, setCoverUrl] = useState('');
+  const [galleryUrls, setGalleryUrls] = useState([]);
+  const [imageUploading, setImageUploading] = useState(false);
   const [toast, setToast] = useState(null);
 
   const createMutation = useCreateProperty();
@@ -95,8 +107,35 @@ export default function PropertyForm() {
         reference_code: existingProperty.reference_code || '',
         amenities: existingProperty.amenities || [],
       });
+      setCoverUrl(existingProperty.image_url || '');
+      setGalleryUrls(existingProperty.gallery_urls || []);
     }
   }, [existingProperty, isEditing]);
+
+  useEffect(() => {
+    if (location.state?.justCreated) {
+      setToast({ type: 'success', message: 'Propiedad creada. Ya puedes subir imágenes.' });
+      const t = setTimeout(() => setToast(null), 4000);
+      // Clear the state so the toast doesn't reappear on remount
+      window.history.replaceState({}, document.title);
+      return () => clearTimeout(t);
+    }
+  }, [location.state]);
+
+  const imagesDirty = !!existingProperty && (
+    coverUrl !== (existingProperty.image_url || '') ||
+    JSON.stringify(galleryUrls) !== JSON.stringify(existingProperty.gallery_urls || [])
+  );
+
+  useEffect(() => {
+    if (!imagesDirty) return;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [imagesDirty]);
 
   const updateField = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -124,6 +163,92 @@ export default function PropertyForm() {
   };
 
   const removeDoc = (index) => setDocuments(prev => prev.filter((_, i) => i !== index));
+
+  // ── Images ──────────────────────────────────────────────────────
+  const MAX_IMAGES = 20;
+  const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+  const handleImagePick = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = ''; // allow re-picking the same file later
+    if (!id) {
+      setToast({ type: 'error', message: 'Guarda la propiedad antes de subir imágenes.' });
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+
+    const total = (coverUrl ? 1 : 0) + galleryUrls.length;
+    const room = MAX_IMAGES - total;
+    if (room <= 0) {
+      setToast({ type: 'error', message: `Máximo ${MAX_IMAGES} imágenes.` });
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const accepted = files.slice(0, room);
+
+    setImageUploading(true);
+    try {
+      for (const file of accepted) {
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+          setToast({ type: 'error', message: `Tipo no permitido: ${file.name}` });
+          setTimeout(() => setToast(null), 4000);
+          continue;
+        }
+        if (file.size > MAX_IMAGE_BYTES) {
+          setToast({ type: 'error', message: `${file.name} supera 10 MB.` });
+          setTimeout(() => setToast(null), 4000);
+          continue;
+        }
+
+        const { upload_url, image_url } = await getImageUploadUrl({
+          propertyId: id,
+          filename: file.name,
+          contentType: file.type,
+        });
+
+        await fetch(upload_url, {
+          method: 'PUT',
+          body: file,
+          headers: { 'Content-Type': file.type },
+        });
+
+        // First image becomes cover automatically.
+        if (!coverUrl) {
+          setCoverUrl(image_url);
+        } else {
+          setGalleryUrls((prev) => [...prev, image_url]);
+        }
+      }
+    } catch (err) {
+      setToast({ type: 'error', message: `Error subiendo imagen: ${err.message}` });
+      setTimeout(() => setToast(null), 5000);
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const handleSetCover = (url) => {
+    if (!url || url === coverUrl) return;
+    const oldCover = coverUrl;
+    setCoverUrl(url);
+    setGalleryUrls((prev) => {
+      const without = prev.filter((u) => u !== url);
+      return oldCover ? [oldCover, ...without] : without;
+    });
+  };
+
+  const handleDeleteImage = async (url) => {
+    if (!id) return;
+    try {
+      await deletePropertyImage({ propertyId: id, imageUrl: url });
+      if (coverUrl === url) setCoverUrl('');
+      setGalleryUrls((prev) => prev.filter((u) => u !== url));
+    } catch (err) {
+      setToast({ type: 'error', message: `No se pudo eliminar: ${err.message}` });
+      setTimeout(() => setToast(null), 5000);
+    }
+  };
 
   const uploadDocuments = async (propertyId) => {
     const pending = documents.filter((d) => !d.uploaded);
@@ -228,6 +353,8 @@ export default function PropertyForm() {
       area_m2: form.area_m2 ? Number(form.area_m2) : undefined,
       year_built: form.year_built ? Number(form.year_built) : undefined,
       floor_number: form.floor_number ? Number(form.floor_number) : undefined,
+      image_url: coverUrl || null,
+      gallery_urls: galleryUrls,
     };
 
     try {
@@ -239,7 +366,13 @@ export default function PropertyForm() {
         propertyId = created?.id || created?.property_id;
       }
       if (propertyId) await uploadDocuments(propertyId);
-      navigate('/br/properties');
+      // After CREATE, drop the user into edit mode so they can upload images.
+      // After UPDATE, return to the list as before.
+      if (isEditing) {
+        navigate('/br/properties');
+      } else {
+        navigate(`/br/properties/${propertyId}`, { state: { justCreated: true } });
+      }
     } catch (err) {
       setToast({ type: 'error', message: err.message });
       setTimeout(() => setToast(null), 5000);
@@ -490,6 +623,103 @@ export default function PropertyForm() {
               className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
             />
           </div>
+        </div>
+
+        {/* Images */}
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-2">
+            <Image className="h-5 w-5 text-emerald-600" />
+            Imágenes
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">
+            La primera imagen será la portada. Puedes cambiarla con el botón de estrella.
+            Máximo {MAX_IMAGES} imágenes, 10 MB cada una. Formatos: JPG, PNG, WebP.
+          </p>
+
+          {imagesDirty && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+              Tienes cambios de imágenes sin guardar. Haz clic en <strong>Actualizar Inmueble</strong> para persistirlos.
+            </div>
+          )}
+
+          {!isEditing && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+              Guarda la propiedad para poder subir imágenes.
+            </div>
+          )}
+
+          {isEditing && (
+            <>
+              <input
+                ref={imageInputRef}
+                type="file"
+                className="hidden"
+                multiple
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleImagePick}
+              />
+
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {coverUrl && (
+                  <div className="relative col-span-2 sm:col-span-3">
+                    <img
+                      src={coverUrl}
+                      alt="Portada"
+                      className="h-48 w-full rounded-lg object-cover ring-2 ring-emerald-500"
+                    />
+                    <span className="absolute left-2 top-2 rounded bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white">
+                      Portada
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteImage(coverUrl)}
+                      className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 text-gray-700 hover:bg-red-50 hover:text-red-600"
+                      aria-label="Eliminar portada"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
+                {galleryUrls.map((url) => (
+                  <div key={url} className="relative">
+                    <img
+                      src={url}
+                      alt="Imagen de propiedad"
+                      className="h-32 w-full rounded-lg object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSetCover(url)}
+                      className="absolute left-1.5 top-1.5 rounded-full bg-white/90 p-1.5 text-gray-700 hover:bg-amber-50 hover:text-amber-600"
+                      aria-label="Hacer portada"
+                      title="Hacer portada"
+                    >
+                      <Star className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteImage(url)}
+                      className="absolute right-1.5 top-1.5 rounded-full bg-white/90 p-1.5 text-gray-700 hover:bg-red-50 hover:text-red-600"
+                      aria-label="Eliminar imagen"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                disabled={imageUploading || (coverUrl ? 1 : 0) + galleryUrls.length >= MAX_IMAGES}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-4 text-sm font-medium text-gray-500 transition-colors hover:border-emerald-400 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {imageUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {imageUploading ? 'Subiendo...' : 'Subir Imágenes'}
+              </button>
+            </>
+          )}
         </div>
 
         {/* Documents */}
