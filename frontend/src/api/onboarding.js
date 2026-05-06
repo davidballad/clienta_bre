@@ -18,6 +18,13 @@ export function patchTenantConfig(data) {
   return api.patch('/onboarding/config', data);
 }
 
+/** POST /onboarding/provision — create a tenant for a first-time Google OAuth user.
+ *  Called when the JWT has no custom:tenant_id (new Google sign-up).
+ *  After success, call refreshSession() to get an updated token with custom:tenant_id. */
+export function provisionGoogleUser(data) {
+  return api.post('/onboarding/provision', data);
+}
+
 /** POST /onboarding/logo-upload — get a presigned S3 URL to upload a business logo.
  *  Returns { upload_url, logo_url }
  *  Step 1: PUT the file to upload_url with the correct Content-Type header.

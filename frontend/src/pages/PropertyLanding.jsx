@@ -64,7 +64,7 @@ export default function PropertyLanding() {
   const waText = property
     ? `Hola! 👋 Estoy interesado en la propiedad: "${property.name}" (${txLabel}) — $${price.toLocaleString()}. Ref: ${ref}. ¿Me pueden dar más información?`
     : '';
-  const waUrl = `https://wa.me/${meta.support_phone || '593997848591'}?text=${encodeURIComponent(waText)}`;
+  const waUrl = meta.support_phone ? `https://wa.me/${meta.support_phone}?text=${encodeURIComponent(waText)}` : null;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -81,7 +81,7 @@ export default function PropertyLanding() {
             </div>
           </div>
           <Link
-            to={`/propiedades/${tenantId}`}
+            to={`/propiedades/${tenantParam}`}
             className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -106,7 +106,7 @@ export default function PropertyLanding() {
             <h3 className="text-lg font-bold text-red-900 mb-2">Propiedad no encontrada</h3>
             <p className="text-sm text-red-700 mb-6">Esta propiedad puede haber sido retirada del catálogo.</p>
             <Link
-              to={`/propiedades/${tenantId}`}
+              to={`/propiedades/${tenantParam}`}
               className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 transition-colors"
             >
               Ver otras propiedades
@@ -278,15 +278,17 @@ export default function PropertyLanding() {
                     {!isSale && <span className="text-base font-normal text-gray-400">/mes</span>}
                   </p>
 
-                  <a
-                    href={waUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-6 flex items-center justify-center gap-2 rounded-2xl bg-brand-600 px-6 py-4 text-sm font-bold text-white shadow-lg shadow-brand-600/25 transition-all hover:bg-brand-500 hover:scale-[1.02] active:scale-95"
-                  >
-                    <MessageCircle className="h-5 w-5" />
-                    Consultar por WhatsApp
-                  </a>
+                  {waUrl && (
+                    <a
+                      href={waUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-6 flex items-center justify-center gap-2 rounded-2xl bg-brand-600 px-6 py-4 text-sm font-bold text-white shadow-lg shadow-brand-600/25 transition-all hover:bg-brand-500 hover:scale-[1.02] active:scale-95"
+                    >
+                      <MessageCircle className="h-5 w-5" />
+                      Consultar por WhatsApp
+                    </a>
+                  )}
 
                   <p className="mt-3 text-center text-xs text-gray-400">
                     Te respondemos a la brevedad

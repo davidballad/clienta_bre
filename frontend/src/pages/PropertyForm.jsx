@@ -68,7 +68,6 @@ export default function PropertyForm() {
   const location = useLocation();
   const isEditing = !!id;
 
-  const fileInputRef = useRef(null);
   const docInputRef = useRef(null);
   const flyerInputRef = useRef(null);
   const imageInputRef = useRef(null);

@@ -321,7 +321,7 @@ export default function MessagesInbox() {
                 </div>
                 {selectedConv.contact_id && (
                   <Link
-                    to={`/app/leads/${selectedConv.contact_id}`}
+                    to={`/br/leads/${selectedConv.contact_id}`}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-500/10 border border-brand-500/20 text-xs font-bold text-brand-400 hover:bg-brand-500/20 transition-all shadow-[0_0_20px_rgba(59,130,246,0.05)]"
                   >
                     VIEW PROFILE

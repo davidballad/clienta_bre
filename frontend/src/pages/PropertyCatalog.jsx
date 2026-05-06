@@ -11,7 +11,8 @@ import {
   ChevronRight,
   Phone,
   MessageCircle,
-  Home
+  Home,
+  Image
 } from 'lucide-react';
 
 // A ULID is exactly 26 uppercase alphanumeric chars
@@ -184,13 +185,15 @@ export default function PropertyCatalog() {
           </div>
         ) : (
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-            {properties.map((prop) => (
-              <div 
+            {properties.map((prop) => {
+              const waMsg = encodeURIComponent(`Hola! 👋 Estoy interesado en la propiedad: "${prop.name}" (Ref: ${prop.reference_code || prop.id}). ¿Podrían darme más información?`);
+              const waUrl = meta.support_phone ? `https://wa.me/${meta.support_phone}?text=${waMsg}` : null;
+              return (<div 
                 key={prop.id} 
                 className="group flex flex-col overflow-hidden rounded-[2rem] bg-white shadow-[0_10px_40px_-15px_rgba(0,0,0,0.08)] ring-1 ring-gray-100 transition-all hover:-translate-y-2 hover:shadow-[0_25px_60px_-20px_rgba(0,0,0,0.12)] hover:ring-brand-100"
               >
                 {/* Image Placeholder/Thumbnail */}
-                <div className="relative h-64 overflow-hidden">
+                <Link to={`/propiedades/${tenantParam}/${prop.id}`} className="relative h-64 overflow-hidden block">
                   {prop.image_url ? (
                     <img src={prop.image_url} alt={prop.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
                   ) : (
@@ -208,7 +211,15 @@ export default function PropertyCatalog() {
                       {prop.property_type || 'Inmueble'}
                     </span>
                   </div>
-                </div>
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    {(prop.gallery_urls?.length > 0) && (
+                      <span className="bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] font-bold text-white shadow-sm flex items-center gap-1.5 border border-white/20">
+                        <Image className="h-3 w-3" />
+                        1 + {prop.gallery_urls.length}
+                      </span>
+                    )}
+                  </div>
+                </Link>
 
                 {/* Body */}
                 <div className="flex flex-1 flex-col p-6">
@@ -217,9 +228,11 @@ export default function PropertyCatalog() {
                       <MapPin className="h-3.5 w-3.5" />
                       <span className="text-xs font-bold uppercase tracking-tight">{prop.city}{prop.neighborhood ? `, ${prop.neighborhood}` : ''}</span>
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-brand-700 transition-colors line-clamp-2 leading-tight mb-3">
-                      {prop.name}
-                    </h3>
+                    <Link to={`/propiedades/${tenantParam}/${prop.id}`} className="block">
+                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-brand-700 transition-colors line-clamp-2 leading-tight mb-3">
+                        {prop.name}
+                      </h3>
+                    </Link>
                     
                     {/* Features bar */}
                     <div className="grid grid-cols-3 gap-2 py-4 border-y border-gray-50 mb-4">
@@ -252,19 +265,29 @@ export default function PropertyCatalog() {
                   </div>
 
                   <div className="mt-6 flex flex-col gap-2 pt-2">
-                    <a
-                      href={`https://wa.me/${meta.support_phone || '593997848591'}?text=${encodeURIComponent(`Hola! 👋 Estoy interesado en la propiedad: "${prop.name}" (Ref: ${prop.reference_code || prop.id}). ¿Podrían darme más información?`)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 rounded-2xl bg-brand-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-brand-600/25 transition-all hover:bg-brand-500 hover:scale-[1.02] active:scale-95"
+                    <Link
+                      to={`/propiedades/${tenantParam}/${prop.id}`}
+                      className="flex items-center justify-center gap-2 rounded-2xl bg-white border-2 border-brand-100 px-6 py-3 text-sm font-bold text-brand-600 transition-all hover:bg-brand-50 hover:border-brand-200"
                     >
-                      <MessageCircle className="h-4 w-4" />
-                      Consultar por WhatsApp
-                    </a>
+                      <Building2 className="h-4 w-4" />
+                      Ver Detalles
+                    </Link>
+                    {waUrl && (
+                      <a
+                        href={waUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 rounded-2xl bg-brand-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-brand-600/25 transition-all hover:bg-brand-500 hover:scale-[1.02] active:scale-95"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        Consultar por WhatsApp
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

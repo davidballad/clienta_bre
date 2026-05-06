@@ -28,7 +28,13 @@ export default function Login() {
 
     setOauthLoading(true);
     handleOAuthCallback(code)
-      .then(() => navigate(redirectTo, { replace: true }))
+      .then(({ tenantId }) => {
+        if (!tenantId) {
+          navigate('/google-onboarding', { replace: true });
+        } else {
+          navigate(redirectTo, { replace: true });
+        }
+      })
       .catch((err) => {
         setError(err.message || 'Google sign-in failed. Please try again.');
         setOauthLoading(false);

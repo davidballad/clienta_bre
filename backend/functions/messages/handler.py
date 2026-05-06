@@ -183,7 +183,7 @@ def list_conversations(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
     """GET /conversations — fast list for inbox/reminders. Optional filters: category, phone."""
     params = event.get("queryStringParameters") or {}
     next_token = params.get("next_token")
-    category = (params.get("category") or "").strip().lower()
+    category_filter = (params.get("category") or "").strip().lower()
     phone = normalize_phone(params.get("phone"))
     try:
         limit = min(int(params.get("limit", LIMIT_DEFAULT)), LIMIT_MAX)
@@ -195,6 +195,8 @@ def list_conversations(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
     try:
         items, last_eval = query_items(pk=pk, sk_prefix=CONVO_SK_PREFIX, limit=limit, last_key=last_key)
         convos = [ConversationSummary.from_dynamo(item).to_dict() for item in items]
+        if category_filter:
+            convos = [c for c in convos if (c.get("category") or "").lower() == category_filter]
         if phone:
             convos = [c for c in convos if normalize_phone(c.get("customer_phone")) == phone]
         body: dict[str, Any] = {"conversations": convos}
@@ -231,8 +233,8 @@ def list_conversation_messages(tenant_id: str, customer_phone: str, event: dict[
             pk_attr="gsi1pk",
             sk_attr="gsi1sk",
         )
-        # Convert items to dicts and sort chronologically for UI display.
-        messages = [Message.from_dynamo(item).to_dict() for item in items]
+        # Filter to this tenant — same phone may have conversations across multiple tenants.
+        messages = [Message.from_dynamo(item).to_dict() for item in items if item.get("tenant_id") == tenant_id]
         messages.sort(key=lambda m: (m.get("created_ts") or ""))
         
         body: dict[str, Any] = {"messages": messages}
@@ -463,22 +465,26 @@ def send_message(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
     return created(Message.from_dynamo(item).to_dict())
 
 
-def _find_latest_message_for_phone(pk: str, customer_phone: str) -> dict[str, Any] | None:
-    """Find the latest message in the conversation thread for this customer phone using GSI1."""
+def _find_latest_message_for_phone(customer_phone: str, tenant_id: str) -> dict[str, Any] | None:
+    """Find the latest message in the conversation thread for this customer phone using GSI1.
+    Scoped to tenant_id to prevent cross-tenant bleed when the same phone number has
+    conversations in multiple tenants."""
     phone_norm = normalize_phone(customer_phone)
     if not phone_norm:
         return None
     try:
+        # Query up to 20 to handle multi-tenant data at the same phone — filter to this tenant.
         items, _ = query_items(
             pk=f"PHONE#{phone_norm}",
             sk_prefix="MSG#",
-            limit=1,
-            scan_index_forward=False, # Newest first
+            limit=20,
+            scan_index_forward=False,  # Newest first
             index_name="GSI1",
             pk_attr="gsi1pk",
             sk_attr="gsi1sk",
         )
-        return items[0] if items else None
+        tenant_items = [i for i in items if i.get("tenant_id") == tenant_id]
+        return tenant_items[0] if tenant_items else None
     except DynamoDBError:
         return None
 
@@ -516,7 +522,7 @@ def mark_conversation(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
         if existing_convo:
             update_item(pk=pk, sk=convo_sk, updates={"category": category, "updated_at": now_iso()})
 
-        latest_msg = _find_latest_message_for_phone(pk, from_number)
+        latest_msg = _find_latest_message_for_phone(from_number, tenant_id)
         if not latest_msg:
             return success(body={"message": "No conversation found", "updated": False})
         update_item(pk=pk, sk=latest_msg["sk"], updates={"category": category})
@@ -543,7 +549,7 @@ def mark_conversation_closed(tenant_id: str, event: dict[str, Any]) -> dict[str,
         if existing_convo:
             update_item(pk=pk, sk=convo_sk, updates={"category": "cerrado", "updated_at": now_iso()})
 
-        latest_msg = _find_latest_message_for_phone(pk, from_number)
+        latest_msg = _find_latest_message_for_phone(from_number, tenant_id)
         if not latest_msg:
             return success(body={"message": "No conversation found", "closed": False})
         updated = update_item(pk=pk, sk=latest_msg["sk"], updates={"category": "cerrado"})

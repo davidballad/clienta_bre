@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hmac
 import json
 import os
 import urllib.request
@@ -101,6 +100,16 @@ def _extract_jwt_tenant_id(event: dict[str, Any]) -> str | None:
     if not claims:
         return None
     return claims.get("custom:tenant_id") or claims.get("tenant_id")
+
+
+def get_verified_jwt_subject(event: dict[str, Any]) -> tuple[str | None, str | None]:
+    """Validate the Bearer JWT signature and issuer without requiring custom:tenant_id.
+    Returns (sub, email) for a valid token, or (None, None) if invalid.
+    Used for the Google OAuth provisioning flow where tenant_id is not yet assigned."""
+    payload = _decode_bearer_token(event)
+    if not payload:
+        return None, None
+    return payload.get("sub"), payload.get("email")
 
 
 def validate_service_key(event: dict[str, Any]) -> bool:

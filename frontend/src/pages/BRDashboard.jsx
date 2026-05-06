@@ -18,7 +18,7 @@ import {
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
-import { useProperties, usePropertyStats, useSyncVectors } from '../hooks/useProperties';
+import { useProperties, usePropertyStats } from '../hooks/useProperties';
 import { useContacts } from '../hooks/useContacts';
 
 function formatTime(isoString) {
@@ -135,8 +135,6 @@ export default function BRDashboard() {
   const { data: statsData, isLoading: statsLoading } = usePropertyStats();
   const { data: propsData, isLoading: propsLoading } = useProperties({ limit: 6 });
   const { data: contactsData, isLoading: contactsLoading } = useContacts({ limit: 10 });
-  const syncMutation = useSyncVectors();
-
   const stats = statsData || { total: 0, by_status: {}, by_type: {} };
   const properties = propsData?.properties || [];
   

@@ -139,6 +139,36 @@ resource "aws_apigatewayv2_route" "contacts_stats" {
   target    = "integrations/${aws_apigatewayv2_integration.contacts.id}"
 }
 
+resource "aws_apigatewayv2_route" "contacts_export" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /contacts/export"
+  target    = "integrations/${aws_apigatewayv2_integration.contacts.id}"
+}
+
+resource "aws_apigatewayv2_route" "contacts_bulk_tag" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /contacts/bulk-tag"
+  target    = "integrations/${aws_apigatewayv2_integration.contacts.id}"
+}
+
+resource "aws_apigatewayv2_route" "contacts_notes_list" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /contacts/{id}/notes"
+  target    = "integrations/${aws_apigatewayv2_integration.contacts.id}"
+}
+
+resource "aws_apigatewayv2_route" "contacts_notes_create" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /contacts/{id}/notes"
+  target    = "integrations/${aws_apigatewayv2_integration.contacts.id}"
+}
+
+resource "aws_apigatewayv2_route" "contacts_notes_delete" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "DELETE /contacts/{id}/notes/{noteId}"
+  target    = "integrations/${aws_apigatewayv2_integration.contacts.id}"
+}
+
 resource "aws_apigatewayv2_route" "contacts_messages" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "GET /contacts/{id}/messages"
@@ -179,6 +209,12 @@ resource "aws_apigatewayv2_route" "messages_send" {
 resource "aws_apigatewayv2_route" "messages_mark_conversation" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "POST /messages/mark-conversation"
+  target    = "integrations/${aws_apigatewayv2_integration.messages.id}"
+}
+
+resource "aws_apigatewayv2_route" "messages_mark_conversation_closed" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /messages/mark-conversation-closed"
   target    = "integrations/${aws_apigatewayv2_integration.messages.id}"
 }
 
@@ -237,6 +273,41 @@ resource "aws_apigatewayv2_route" "onboarding_resolve_phone" {
   target    = "integrations/${aws_apigatewayv2_integration.onboarding.id}"
 }
 
+# Google-federated first-login: create tenant when JWT has no custom:tenant_id yet
+resource "aws_apigatewayv2_route" "onboarding_provision" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /onboarding/provision"
+  target    = "integrations/${aws_apigatewayv2_integration.onboarding.id}"
+}
+
+# Logo upload presigned URL (JWT required)
+resource "aws_apigatewayv2_route" "onboarding_logo_upload" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /onboarding/logo-upload"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.onboarding.id}"
+}
+
+# n8n / scheduler service-key routes
+resource "aws_apigatewayv2_route" "onboarding_tenant_ids" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /onboarding/tenant-ids"
+  target    = "integrations/${aws_apigatewayv2_integration.onboarding.id}"
+}
+
+resource "aws_apigatewayv2_route" "onboarding_service_tenant" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /onboarding/service/tenant"
+  target    = "integrations/${aws_apigatewayv2_integration.onboarding.id}"
+}
+
+resource "aws_apigatewayv2_route" "onboarding_daily_summary" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /onboarding/daily-summary"
+  target    = "integrations/${aws_apigatewayv2_integration.onboarding.id}"
+}
+
 # --- Users ---
 resource "aws_apigatewayv2_route" "users_list" {
   api_id             = aws_apigatewayv2_api.main.id
@@ -254,11 +325,45 @@ resource "aws_apigatewayv2_route" "users_invite" {
   target             = "integrations/${aws_apigatewayv2_integration.users.id}"
 }
 
+resource "aws_apigatewayv2_route" "users_get" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /users/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.users.id}"
+}
+
+resource "aws_apigatewayv2_route" "users_update" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /users/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.users.id}"
+}
+
+resource "aws_apigatewayv2_route" "users_deactivate" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "DELETE /users/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.users.id}"
+}
+
 # --- AI Agents ---
 resource "aws_apigatewayv2_route" "agents_run" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "POST /agents/{agent_type}/run"
-  target    = "integrations/${aws_apigatewayv2_integration.agents.id}"
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /agents/{agent_type}/run"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.agents.id}"
+}
+
+resource "aws_apigatewayv2_route" "agents_history" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /agents/history"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.agents.id}"
 }
 
 # --- Properties (Clienta BR) ---
@@ -337,7 +442,7 @@ resource "aws_apigatewayv2_route" "properties_import" {
 
 resource "aws_apigatewayv2_route" "properties_template" {
   api_id    = aws_apigatewayv2_api.main.id
-  route_key = "GET /properties/export/template"
+  route_key = "GET /properties/import/template"
   target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
 }
 
@@ -356,6 +461,12 @@ resource "aws_apigatewayv2_route" "properties_upload_image" {
 resource "aws_apigatewayv2_route" "properties_delete_image" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "DELETE /properties/{id}/images"
+  target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
+}
+
+resource "aws_apigatewayv2_route" "properties_sync_vectors" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /properties/sync-vectors"
   target    = "integrations/${aws_apigatewayv2_integration.properties.id}"
 }
 

@@ -1,13 +1,12 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useContacts, usePatchContact, useBulkTagContacts } from '../hooks/useContacts';
 import { downloadLeadsExport } from '../api/contacts';
 import { usePlan } from '../hooks/useTenantConfig';
 import {
   Users, Download, SlidersHorizontal, X, ChevronDown, ChevronUp,
-  Tag, CheckSquare, Square, Megaphone,
+  Tag, CheckSquare, Square,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
 const STATUSES = [
   { id: 'prospect', label: 'Prospecto', color: 'border-gray-400', dot: 'bg-gray-500' },
@@ -290,10 +289,6 @@ export default function LeadsList() {
     setSelected(new Set());
   };
 
-  const handleSendCampaign = () => {
-    navigate('/app/campaigns');
-  };
-
   const byStatus = STATUSES.reduce((acc, s) => {
     acc[s.id] = contacts.filter((c) => (c.lead_status || 'prospect') === s.id);
     return acc;
@@ -375,13 +370,6 @@ export default function LeadsList() {
               Etiqueta
             </button>
             <button
-              onClick={handleSendCampaign}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors"
-            >
-              <Megaphone className="h-3.5 w-3.5" />
-              Campaña
-            </button>
-            <button
               onClick={() => setSelected(new Set())}
               className="rounded-lg p-1.5 text-indigo-600 hover:bg-indigo-100 transition-colors"
             >
@@ -457,7 +445,7 @@ export default function LeadsList() {
                             ? <CheckSquare className="h-4 w-4 text-indigo-600" />
                             : <Square className="h-4 w-4" />}
                         </button>
-                        <Link to={`/app/leads/${c.contact_id}`} className="block min-w-0 flex-1">
+                        <Link to={`/br/leads/${c.contact_id}`} className="block min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-1">
                             <span className="font-medium text-gray-900 truncate">{c.name}</span>
                             <TierBadge tier={c.tier} />

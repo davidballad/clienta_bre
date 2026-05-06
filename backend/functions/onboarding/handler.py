@@ -14,7 +14,7 @@ from botocore.exceptions import ClientError
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from shared.auth import extract_service_tenant_id, extract_tenant_id, require_auth, validate_service_key
+from shared.auth import extract_service_tenant_id, extract_tenant_id, get_verified_jwt_subject, require_auth, validate_service_key
 from shared.db import DynamoDBError, get_item, put_item, query_gsi, query_items, update_item
 from shared.models import Tenant
 from shared.response import created, error, server_error, success
@@ -830,6 +830,100 @@ def _handle_logo_upload(event: dict[str, Any]) -> dict[str, Any]:
     return get_logo_upload_url(event)
 
 
+def provision_google_user(event: dict[str, Any]) -> dict[str, Any]:
+    """POST /onboarding/provision — create a tenant for a Google-federated user.
+
+    Called after the first Google OAuth login when the JWT has no custom:tenant_id.
+    Validates the Bearer JWT cryptographically (without requiring custom:tenant_id),
+    creates the tenant record, and updates the Cognito user so subsequent tokens
+    carry custom:tenant_id and custom:role.
+    """
+    sub, email = get_verified_jwt_subject(event)
+    if not sub or not email:
+        return error("Valid Bearer token required", 401)
+
+    try:
+        body = parse_body(event)
+    except (json.JSONDecodeError, TypeError) as e:
+        return error(f"Invalid JSON body: {e}", 400)
+
+    business_name = (body.get("business_name") or "").strip()
+    if not business_name:
+        return error("business_name is required", 400)
+
+    business_type_raw = (body.get("business_type") or "real_estate").strip().lower()
+    if business_type_raw not in VALID_BUSINESS_TYPES:
+        return error(f"business_type must be one of: {', '.join(sorted(VALID_BUSINESS_TYPES))}", 400)
+
+    meta_phone_number_id = (body.get("meta_phone_number_id") or "").strip()
+    if not meta_phone_number_id:
+        return error("meta_phone_number_id is required", 400)
+
+    user_pool_id = os.environ.get("COGNITO_USER_POOL_ID")
+    if not user_pool_id:
+        return server_error("COGNITO_USER_POOL_ID not configured")
+
+    tenant_id = generate_id()
+    now = now_iso()
+    pk = build_pk(tenant_id)
+    sk = build_sk("TENANT", tenant_id)
+
+    tenant_item: dict[str, Any] = {
+        "pk": pk,
+        "sk": sk,
+        "entity_type": "TENANT",
+        "id": tenant_id,
+        "business_name": business_name,
+        "business_type": business_type_raw,
+        "owner_email": email,
+        "plan": "free",
+        "created_at": now,
+        "updated_at": now,
+    }
+
+    try:
+        put_item(tenant_item)
+    except DynamoDBError:
+        return server_error("Failed to create tenant record")
+
+    # Stamp the Cognito user with tenant_id and role so the next token has the claims.
+    cognito = boto3.client("cognito-idp")
+    try:
+        cognito.admin_update_user_attributes(
+            UserPoolId=user_pool_id,
+            Username=sub,
+            UserAttributes=[
+                {"Name": "custom:tenant_id", "Value": tenant_id},
+                {"Name": "custom:role", "Value": "owner"},
+            ],
+        )
+    except ClientError as e:
+        # Roll back the tenant record so the user can retry.
+        try:
+            from shared.db import delete_item
+            delete_item(pk=pk, sk=sk)
+        except Exception:
+            pass
+        msg = e.response.get("Error", {}).get("Message", str(e))
+        return server_error(f"Failed to update Cognito user: {msg}")
+
+    _append_tenant_id_to_s3(tenant_id)
+
+    if meta_phone_number_id:
+        try:
+            _upsert_phone_number_id_mapping(meta_phone_number_id, tenant_id)
+            update_item(pk, sk, {"meta_phone_number_id": meta_phone_number_id, "updated_at": now_iso()})
+        except DynamoDBError:
+            pass
+
+    try:
+        _seed_products(tenant_id, business_type_raw)
+    except (DynamoDBError, ClientError):
+        pass
+
+    return created({"tenant_id": tenant_id, "message": "Tenant provisioned. Refresh your session to continue."})
+
+
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Route onboarding requests."""
     path = _get_path(event)
@@ -845,9 +939,13 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         # For now, we'll just log it or send an SES email.
         return success({"message": "Lead received. We will contact you soon."})
 
-    # No auth: tenant creation
+    # No auth: tenant creation (email/password signup)
     if method == "POST" and ("/onboarding/tenant" in path):
         return create_tenant(event)
+
+    # Bearer JWT (no custom:tenant_id required): Google OAuth first-login provisioning
+    if method == "POST" and ("/onboarding/provision" in path):
+        return provision_google_user(event)
 
     # No JWT auth: phone resolution (service key checked inside handler)
     if method == "GET" and ("/onboarding/resolve-phone" in path):

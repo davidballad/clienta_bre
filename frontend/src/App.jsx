@@ -20,6 +20,7 @@ import PropertyList from './pages/PropertyList';
 import PropertyCatalog from './pages/PropertyCatalog';
 import PropertyLanding from './pages/PropertyLanding';
 import Appointments from './pages/Appointments';
+import GoogleOnboarding from './pages/GoogleOnboarding';
 
 export default function App() {
   const { token } = useAuth();
@@ -44,6 +45,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/google-onboarding" element={<GoogleOnboarding />} />
       <Route path="/propiedades/:tenantId/:propertyId" element={<PropertyLanding />} />
       <Route path="/propiedades/:tenantId" element={<PropertyCatalog />} />
       <Route path="/properties/:tenantId" element={<PropertyCatalog />} />

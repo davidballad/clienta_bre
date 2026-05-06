@@ -53,7 +53,7 @@ export default function BRLayout() {
 
   const handleSignOut = () => {
     signOut();
-    navigate('/bre');
+    navigate('/login');
   };
 
   const sidebar = (

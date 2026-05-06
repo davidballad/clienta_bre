@@ -29,6 +29,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(isDemoMode ? DEMO_USER : null);
   const [token, setToken] = useState(isDemoMode ? 'demo-token' : null);
+  const [refreshToken, setRefreshToken] = useState(null);
   const [loading, setLoading] = useState(!isDemoMode);
 
   const extractUserData = useCallback((session) => {
@@ -99,7 +100,44 @@ export function AuthProvider({ children }) {
     if (cognitoUser) cognitoUser.signOut();
     setUser(null);
     setToken(null);
+    setRefreshToken(null);
   }, []);
+
+  /**
+   * Refresh a Google-federated session using the stored refresh token.
+   * Returns the new tenantId so callers can redirect once provisioning is complete.
+   */
+  const refreshSession = useCallback(async () => {
+    if (!refreshToken || !COGNITO_DOMAIN || !poolData.ClientId) {
+      throw new Error('No refresh token available. Please sign in again.');
+    }
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: poolData.ClientId,
+      refresh_token: refreshToken,
+    });
+    const resp = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) {
+      throw new Error(data.error_description || data.error || 'Session refresh failed');
+    }
+    const idToken = data.id_token;
+    const payloadB64 = idToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(payloadB64));
+    const tenantId = payload['custom:tenant_id'] || null;
+    setToken(idToken);
+    setUser({
+      email: payload.email,
+      tenantId,
+      role: payload['custom:role'] || 'owner',
+      sub: payload.sub,
+    });
+    return { tenantId };
+  }, [refreshToken]);
 
   /**
    * Redirect to Cognito Hosted UI for Google federated sign-in.
@@ -181,18 +219,22 @@ export function AuthProvider({ children }) {
     const payloadB64 = idToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
     const payload = JSON.parse(atob(payloadB64));
 
+    const tenantId = payload['custom:tenant_id'] || null;
     setToken(idToken);
+    if (data.refresh_token) setRefreshToken(data.refresh_token);
     setUser({
       email: payload.email,
-      tenantId: payload['custom:tenant_id'] || null,
+      tenantId,
       role: payload['custom:role'] || 'owner',
       sub: payload.sub,
     });
+    // Return tenantId so the caller can decide whether to go to onboarding.
+    return { tenantId };
   }, []);
 
   const value = {
     user, token, loading, signIn, signOut, signInWithGoogle, handleOAuthCallback,
-    forgotPassword, confirmNewPassword,
+    refreshSession, forgotPassword, confirmNewPassword,
     isAuthenticated: !!token, isDemoMode,
   };
 

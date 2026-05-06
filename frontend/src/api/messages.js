@@ -68,14 +68,6 @@ export async function fetchContactMessages(contactId, { nextToken, limit } = {})
   return api.get(`/contacts/${contactId}/messages?${qs}`);
 }
 
-export function createMessage(data) {
-  return api.post('/messages', data);
-}
-
-export function patchMessageFlags(id, data) {
-  return api.patch(`/messages/${id}/flags`, data);
-}
-
 /** Send WhatsApp message from UI. Body: { to_number, text }. */
 export function sendMessage({ to_number, text }) {
   return api.post('/messages/send', { to_number, text });
