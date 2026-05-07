@@ -315,6 +315,62 @@ def check_upcoming(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Blocked dates
+# ---------------------------------------------------------------------------
+
+BLOCKED_SK_PREFIX = "BLOCKED#"
+
+
+def list_blocked_dates(tenant_id: str) -> dict[str, Any]:
+    """GET /appointments/blocked-dates — list all blocked dates for this tenant."""
+    pk = build_pk(tenant_id)
+    try:
+        items, _ = query_items(pk=pk, sk_prefix=BLOCKED_SK_PREFIX, limit=365)
+    except DynamoDBError as e:
+        return server_error(str(e))
+    dates = [item["sk"].replace(BLOCKED_SK_PREFIX, "") for item in items]
+    return success({"blocked_dates": sorted(dates)})
+
+
+def block_date(tenant_id: str, event: dict[str, Any]) -> dict[str, Any]:
+    """POST /appointments/blocked-dates — block a date (YYYY-MM-DD)."""
+    try:
+        body = parse_body(event)
+    except (json.JSONDecodeError, TypeError):
+        return error("Invalid JSON body", 400)
+
+    date_str = (body.get("date") or "").strip()
+    if not date_str:
+        return error("date is required (YYYY-MM-DD)", 400)
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return error("date must be in YYYY-MM-DD format", 400)
+
+    pk = build_pk(tenant_id)
+    sk = f"{BLOCKED_SK_PREFIX}{date_str}"
+    try:
+        put_item({"pk": pk, "sk": sk, "tenant_id": tenant_id, "date": date_str, "created_at": now_iso()})
+    except DynamoDBError as e:
+        return server_error(str(e))
+    return success({"date": date_str})
+
+
+def unblock_date(tenant_id: str, date_str: str) -> dict[str, Any]:
+    """DELETE /appointments/blocked-dates/{date} — remove a blocked date."""
+    pk = build_pk(tenant_id)
+    sk = f"{BLOCKED_SK_PREFIX}{date_str}"
+    try:
+        existing = get_item(pk=pk, sk=sk)
+        if not existing:
+            return not_found("Blocked date not found")
+        delete_item(pk=pk, sk=sk)
+    except DynamoDBError as e:
+        return server_error(str(e))
+    return no_content()
+
+
+# ---------------------------------------------------------------------------
 # Router
 # ---------------------------------------------------------------------------
 
@@ -326,7 +382,17 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         path = event.get("path", "") or event.get("rawPath", "")
         path_params = event.get("pathParameters") or {}
         appointment_id = path_params.get("id")
+        blocked_date = path_params.get("date")
         tenant_id = event.get("tenant_id", "")
+
+        # Blocked dates
+        if "/appointments/blocked-dates" in path:
+            if method == "GET":
+                return list_blocked_dates(tenant_id)
+            if method == "POST":
+                return block_date(tenant_id, event)
+            if method == "DELETE" and blocked_date:
+                return unblock_date(tenant_id, blocked_date)
 
         # n8n or owner can call /appointments/upcoming (service key OR JWT accepted)
         if method == "GET" and path.endswith("/appointments/upcoming"):

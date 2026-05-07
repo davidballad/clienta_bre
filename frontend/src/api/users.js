@@ -4,6 +4,10 @@ export function fetchUsers() {
   return api.get('/users');
 }
 
+export function inviteUser(data) {
+  return api.post('/users', data);
+}
+
 export function fetchUser(id) {
   return api.get(`/users/${id}`);
 }

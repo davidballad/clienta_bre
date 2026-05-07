@@ -35,6 +35,23 @@ function delay(ms = 200) {
 export const mockHandlers = {
   // ── Onboarding ────────────────────────────────────────────────────
 
+  async 'GET /users'() {
+    await delay();
+    return { users: [{ id: 'owner-001', email: 'owner@demo.com', display_name: 'Owner', role: 'owner', status: 'active' }] };
+  },
+  async 'POST /users'(_, body) {
+    await delay(400);
+    return { id: `user-${Date.now()}`, email: body.email, display_name: body.display_name || body.email, role: 'staff', status: 'active' };
+  },
+  async 'PUT /users/:id'(id, body) {
+    await delay(200);
+    return { id, ...body };
+  },
+  async 'DELETE /users/:id'(id) {
+    await delay(200);
+    return {};
+  },
+
   async 'GET /onboarding/config'() {
     await delay();
     return { plan: 'pro', business_name: 'Clienta Real Estate', business_type: 'real_estate', tenant_id: 'demo-tenant' };
@@ -219,6 +236,19 @@ export const mockHandlers = {
     const newApt = { appointment_id: `apt-${Date.now()}`, tenant_id: 'demo-tenant', status: 'confirmed', created_at: new Date().toISOString(), ...body };
     APPOINTMENTS.push(newApt);
     return newApt;
+  },
+
+  async 'GET /appointments/blocked-dates'() {
+    await delay(200);
+    return { blocked_dates: [] };
+  },
+  async 'POST /appointments/blocked-dates'(_, body) {
+    await delay(200);
+    return { date: body.date };
+  },
+  async 'DELETE /appointments/blocked-dates/:date'() {
+    await delay(200);
+    return {};
   },
 
   // ── Properties ───────────────────────────────────────────────────

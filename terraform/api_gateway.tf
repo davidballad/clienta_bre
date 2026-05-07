@@ -68,13 +68,6 @@ resource "aws_apigatewayv2_integration" "messages" {
   payload_format_version = "2.0"
 }
 
-resource "aws_apigatewayv2_integration" "agents" {
-  api_id                 = aws_apigatewayv2_api.main.id
-  integration_type       = "AWS_PROXY"
-  integration_uri        = aws_lambda_function.services["agents"].invoke_arn
-  integration_method     = "POST"
-  payload_format_version = "2.0"
-}
 
 resource "aws_apigatewayv2_integration" "properties" {
   api_id                 = aws_apigatewayv2_api.main.id
@@ -349,22 +342,6 @@ resource "aws_apigatewayv2_route" "users_deactivate" {
   target             = "integrations/${aws_apigatewayv2_integration.users.id}"
 }
 
-# --- AI Agents ---
-resource "aws_apigatewayv2_route" "agents_run" {
-  api_id             = aws_apigatewayv2_api.main.id
-  route_key          = "POST /agents/{agent_type}/run"
-  authorization_type = "JWT"
-  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
-  target             = "integrations/${aws_apigatewayv2_integration.agents.id}"
-}
-
-resource "aws_apigatewayv2_route" "agents_history" {
-  api_id             = aws_apigatewayv2_api.main.id
-  route_key          = "GET /agents/history"
-  authorization_type = "JWT"
-  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
-  target             = "integrations/${aws_apigatewayv2_integration.agents.id}"
-}
 
 # --- Properties (Clienta BR) ---
 resource "aws_apigatewayv2_route" "properties_list" {
@@ -512,6 +489,30 @@ resource "aws_apigatewayv2_route" "appointments_patch" {
 resource "aws_apigatewayv2_route" "appointments_delete" {
   api_id             = aws_apigatewayv2_api.main.id
   route_key          = "DELETE /appointments/{id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.appointments.id}"
+}
+
+resource "aws_apigatewayv2_route" "appointments_blocked_list" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /appointments/blocked-dates"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.appointments.id}"
+}
+
+resource "aws_apigatewayv2_route" "appointments_blocked_create" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /appointments/blocked-dates"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.appointments.id}"
+}
+
+resource "aws_apigatewayv2_route" "appointments_blocked_delete" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "DELETE /appointments/blocked-dates/{date}"
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
   target             = "integrations/${aws_apigatewayv2_integration.appointments.id}"

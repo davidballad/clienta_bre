@@ -20,3 +20,15 @@ export function patchAppointment(id, data) {
 export function deleteAppointment(id) {
   return api.delete(`/appointments/${id}`);
 }
+
+export function fetchBlockedDates() {
+  return api.get('/appointments/blocked-dates');
+}
+
+export function blockDate(date) {
+  return api.post('/appointments/blocked-dates', { date });
+}
+
+export function unblockDate(date) {
+  return api.delete(`/appointments/blocked-dates/${date}`);
+}

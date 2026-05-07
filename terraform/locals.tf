@@ -30,10 +30,6 @@ locals {
       memory_size = 256
       timeout     = 30
     }
-    agents = {
-      memory_size = 512
-      timeout     = 60
-    }
     properties = {
       memory_size = 512
       timeout     = 120

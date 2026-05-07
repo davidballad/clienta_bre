@@ -24,8 +24,8 @@ from shared.response import created, error, no_content, not_found, server_error,
 from shared.utils import build_pk, build_sk, generate_id, now_iso, parse_body
 
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-VALID_ROLES = frozenset({"owner", "manager", "staff"})
-ROLE_HIERARCHY = {"owner": 3, "manager": 2, "staff": 1}
+VALID_ROLES = frozenset({"owner", "staff"})
+ROLE_HIERARCHY = {"owner": 2, "staff": 1}
 
 
 def _get_method(event: dict[str, Any]) -> str:
@@ -283,8 +283,8 @@ def lambda_handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]
     user_id = path_params.get("id")
 
     actor_role = event.get("user_info", {}).get("role", "staff")
-    if actor_role not in ("owner", "manager"):
-        return error("Only owners and managers can manage users", 403)
+    if actor_role != "owner":
+        return error("Only owners can manage users", 403)
 
     if method == "POST" and not user_id:
         return invite_user(tenant_id, event)
